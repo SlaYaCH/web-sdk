@@ -1,9 +1,11 @@
+import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC } from './constants';
+import { stateLayoutDerived } from './stateLayout';
 import _ from 'lodash';
 import { stateBet } from 'state-shared';
 import { createPlayBookUtils } from 'utils-book';
 import { createGetEmptyPaddedBoard } from 'utils-slots';
 
-import { SYMBOL_SIZE, REEL_PADDING, SYMBOL_INFO_MAP, BOARD_DIMENSIONS } from './constants';
+import { SYMBOL_WIDTH, REEL_PADDING, SYMBOL_INFO_MAP, BOARD_DIMENSIONS } from './constants';
 import { eventEmitter } from './eventEmitter';
 import type { Bet, BookEventOfType } from './typesBookEvent';
 import { bookEventHandlerMap } from './bookEventHandlerMap';
@@ -49,8 +51,19 @@ export const convertTorResumableBet = (betToResume: Bet) => {
 };
 
 // other utils
-export const getSymbolX = (reelIndex: number) => SYMBOL_SIZE * (reelIndex + REEL_PADDING);
-export const getSymbolY = (symbolIndexOfBoard: number) => (symbolIndexOfBoard + 0.5) * SYMBOL_SIZE;
+export const getSymbolX = (reelIndex: number) => SYMBOL_WIDTH * (reelIndex + REEL_PADDING);
+// Centres exacts de chaque rangee, mesures precisement dans l'image de
+// fond source (1672x941), convertis en fractions.
+const ROW_CENTERS_FRAC = [
+	(130 + 233) / 2 / 941,
+	(237 + 340) / 2 / 941,
+	(343 + 446) / 2 / 941,
+	(450 + 554) / 2 / 941,
+	(557 + 657) / 2 / 941,
+];
+
+export const getSymbolY = (symbolIndexOfBoard: number) =>
+	stateLayoutDerived.mainLayout().height * ROW_CENTERS_FRAC[symbolIndexOfBoard];
 
 export const getSymbolInfo = ({
 	rawSymbol,

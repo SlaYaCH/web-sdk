@@ -1,6 +1,8 @@
 import type { RawSymbol, SymbolState } from './types';
 
 export const SYMBOL_SIZE = 120;
+export const SYMBOL_WIDTH = 116;
+export const SYMBOL_HEIGHT = 91;
 
 export const REEL_PADDING = 0.53;
 
@@ -17,8 +19,8 @@ export const INITIAL_BOARD: RawSymbol[][] = [
 export const BOARD_DIMENSIONS = { x: INITIAL_BOARD.length, y: INITIAL_BOARD[0].length - 2 };
 
 export const BOARD_SIZES = {
-	width: SYMBOL_SIZE * BOARD_DIMENSIONS.x,
-	height: SYMBOL_SIZE * BOARD_DIMENSIONS.y,
+	width: SYMBOL_WIDTH * BOARD_DIMENSIONS.x,
+	height: SYMBOL_HEIGHT * BOARD_DIMENSIONS.y,
 };
 
 export const BACKGROUND_RATIO = 2039 / 1000;
@@ -132,3 +134,13 @@ export const SCATTER_LAND_SOUND_MAP = {
 	4: 'sfx_scatter_stop_4',
 	5: 'sfx_scatter_stop_5',
 } as const;
+
+// Coordonnees mesurees precisement de la grille dans l'image de fond source
+// (1672x941) - c'est LA source de verite pour positionner les symboles,
+// pas une taille de symbole arbitraire.
+const GRID_SOURCE_WIDTH = 1672;
+const GRID_SOURCE_HEIGHT = 941;
+export const GRID_LEFT_FRAC = 491 / GRID_SOURCE_WIDTH;
+export const GRID_RIGHT_FRAC = 1166 / GRID_SOURCE_WIDTH;
+export const GRID_TOP_FRAC = 130 / GRID_SOURCE_HEIGHT;
+export const GRID_BOTTOM_FRAC = 657 / GRID_SOURCE_HEIGHT;

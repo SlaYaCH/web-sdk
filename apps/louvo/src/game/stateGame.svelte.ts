@@ -1,3 +1,4 @@
+import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC, GRID_TOP_FRAC, GRID_BOTTOM_FRAC } from './constants';
 import _ from 'lodash';
 import type { Tween } from 'svelte/motion';
 
@@ -11,6 +12,7 @@ import { winLevelMap } from './winLevelMap';
 import { eventEmitter } from './eventEmitter';
 import {
 	SYMBOL_SIZE,
+	SYMBOL_HEIGHT,
 	BOARD_SIZES,
 	INITIAL_BOARD,
 	BOARD_DIMENSIONS,
@@ -40,7 +42,7 @@ const onSymbolLand = ({ rawSymbol }: { rawSymbol: RawSymbol }) => {
 const board = _.range(BOARD_DIMENSIONS.x).map((reelIndex) => {
 	const reel = createReelForSpinning({
 		reelIndex,
-		symbolHeight: SYMBOL_SIZE,
+		symbolHeight: SYMBOL_HEIGHT,
 		initialSymbols: INITIAL_BOARD[reelIndex],
 		initialSymbolState: INITIAL_SYMBOL_STATE,
 		onReelStopping: () => {
@@ -80,8 +82,8 @@ export const stateGame = $state({
 });
 
 const boardLayout = () => ({
-	x: stateLayoutDerived.mainLayout().width * 0.5,
-	y: stateLayoutDerived.mainLayout().height * 0.5,
+	x: stateLayoutDerived.mainLayout().width * ((GRID_LEFT_FRAC + GRID_RIGHT_FRAC) / 2),
+	y: stateLayoutDerived.mainLayout().height * ((GRID_TOP_FRAC + GRID_BOTTOM_FRAC) / 2),
 	anchor: { x: 0.5, y: 0.5 },
 	pivot: { x: BOARD_SIZES.width / 2, y: BOARD_SIZES.height / 2 },
 	...BOARD_SIZES,

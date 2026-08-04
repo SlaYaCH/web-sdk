@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Container, Sprite, BitmapText } from 'pixi-svelte';
-	import { SYMBOL_SIZE, BOARD_DIMENSIONS } from '../game/constants';
+	import { SYMBOL_WIDTH, SYMBOL_HEIGHT, BOARD_DIMENSIONS } from '../game/constants';
 
 	type Props = {
 		assetKey: string;
@@ -19,8 +19,8 @@
 	const holdMs = props.holdMs ?? 1400;
 
 	// Taille d'un rouleau complet : 1 colonne de large, toute la hauteur du plateau
-	const bannerWidth = SYMBOL_SIZE;
-	const bannerHeight = SYMBOL_SIZE * BOARD_DIMENSIONS.y;
+	const bannerWidth = SYMBOL_WIDTH;
+	const bannerHeight = SYMBOL_HEIGHT * BOARD_DIMENSIONS.y;
 
 	let scale = $state(0.6);
 	let alpha = $state(0);

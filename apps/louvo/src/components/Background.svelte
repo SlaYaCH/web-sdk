@@ -1,17 +1,33 @@
 <script lang="ts">
 	import { Rectangle, Sprite } from 'pixi-svelte';
 	import { FadeContainer } from 'components-pixi';
+	import { MainContainer } from 'components-layout';
 	import { SECOND } from 'constants-shared/time';
 	import { getContext } from '../game/context';
 	const context = getContext();
-	const backgroundProps = $derived(context.stateLayoutDerived.normalBackgroundLayout({}));
 	const showBaseBackground = $derived(context.stateGame.gameType === 'basegame');
 	const showFeatureBackground = $derived(context.stateGame.gameType === 'freegame');
 </script>
 <Rectangle {...context.stateLayoutDerived.canvasSizes()} backgroundColor={0x000000} zIndex={-3} />
-<FadeContainer show={showBaseBackground} duration={SECOND} zIndex={-2}>
-	<Sprite key="boardBackground" {...backgroundProps} />
-</FadeContainer>
-<FadeContainer show={showFeatureBackground} duration={SECOND} zIndex={-1}>
-	<Sprite key="boardBackgroundAfterDark" {...backgroundProps} />
-</FadeContainer>
+<MainContainer>
+	<FadeContainer show={showBaseBackground} duration={SECOND} zIndex={-2}>
+		<Sprite
+			key="boardBackground"
+			x={context.stateLayoutDerived.mainLayout().width * 0.5}
+			y={context.stateLayoutDerived.mainLayout().height * 0.5}
+			anchor={0.5}
+			width={context.stateLayoutDerived.mainLayout().width}
+			height={context.stateLayoutDerived.mainLayout().height}
+		/>
+	</FadeContainer>
+	<FadeContainer show={showFeatureBackground} duration={SECOND} zIndex={-1}>
+		<Sprite
+			key="boardBackgroundAfterDark"
+			x={context.stateLayoutDerived.mainLayout().width * 0.5}
+			y={context.stateLayoutDerived.mainLayout().height * 0.5}
+			anchor={0.5}
+			width={context.stateLayoutDerived.mainLayout().width}
+			height={context.stateLayoutDerived.mainLayout().height}
+		/>
+	</FadeContainer>
+</MainContainer>

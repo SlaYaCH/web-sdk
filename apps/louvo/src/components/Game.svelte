@@ -59,12 +59,12 @@
 		<Sound />
 
 		<MainContainer>
-			<BoardFrame />
+			<Board />
+			<Anticipations />
 		</MainContainer>
 
 		<MainContainer>
-			<Board />
-			<Anticipations />
+			<BoardFrame />
 		</MainContainer>
 
 		<UI>
