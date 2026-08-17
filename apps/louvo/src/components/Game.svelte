@@ -286,7 +286,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p>When MATCH symbols land in a winning combination, two multiplier values face off in a duel. Either one can win, it's a coin flip, and only the surviving multiplier is applied to the win.</p>
 
 	<h3>SUPER LIKE</h3>
-	<p>The SUPER LIKE symbol sends out between 1 and 6 Wilds to random empty positions on the grid, each carrying the same multiplier drawn for the Super Like itself.</p>
+	<p>The SUPER LIKE symbol reveals a multiplier and sends out between 1 and 6 Wilds to random empty positions on the grid.</p>
 
 	<h3>SPEED DATING &amp; AFTER DARK</h3>
 	<p>Land 3 DATE scatters to unlock SPEED DATING: 10 free spins under a brighter sky. Land 4 DATE scatters to unlock AFTER DARK: 10 free spins once the sun goes down, with an escalating Match Streak that can guarantee bigger and bigger MATCH wins the longer it runs.</p>
@@ -363,9 +363,9 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p>The RTP for this game is 96.5%.</p>
 
 	<h2>SPECIAL SYMBOLS</h2>
-	<p><strong>WILD</strong> substitutes for all symbols on the paytable.</p>
+	<p><strong>WILD</strong> substitutes for all symbols on the paytable. Wilds only appear on the grid through the SUPER LIKE feature.</p>
 	<p><strong>MATCH</strong> triggers a duel between two multiplier values, deciding the multiplier applied to the win.</p>
-	<p><strong>SUPER LIKE</strong> sends out extra Wilds carrying its own multiplier.</p>
+	<p><strong>SUPER LIKE</strong> reveals a multiplier and sends out extra Wilds to the grid.</p>
 	<p>Possible multiplier values for MATCH and SUPER LIKE are: 2x, 3x, 4x, 5x, 6x, 7x, 8x, 9x, 10x, 15x, 20x, 25x, 50x, 75x, 100x, 200x.</p>
 	<p><strong>DATE</strong> is the scatter symbol. Land 3 or 4 to unlock SPEED DATING or AFTER DARK.</p>
 

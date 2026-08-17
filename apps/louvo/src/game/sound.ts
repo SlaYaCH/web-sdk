@@ -1,8 +1,9 @@
 import { createSound } from 'utils-sound';
 
 export type MusicName =
-	| 'bgm_main'
-	| 'bgm_freespin'
+	| 'bgm_main_louvo'
+	| 'bgm_speed_dating'
+	| 'bgm_after_dark'
 	| 'bgm_winlevel_big'
 	| 'bgm_winlevel_epic'
 	| 'bgm_winlevel_max'

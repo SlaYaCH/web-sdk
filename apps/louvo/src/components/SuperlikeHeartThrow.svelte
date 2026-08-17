@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Container, Sprite } from 'pixi-svelte';
 	import { getSymbolX } from '../game/utils';
+	import { getContext } from '../game/context';
 	import { BOARD_SIZES, SYMBOL_HEIGHT, REEL_PADDING } from '../game/constants';
 
 	type Position = { reelIndex: number; rowIndex: number };
@@ -11,6 +12,7 @@
 		positions?: Position[];
 	};
 	const props: Props = $props();
+	const context = getContext();
 
 	const HEART_SIZE = 28; // meme taille que les coeurs du presentoir
 	const BASE_DELAY = 300;
@@ -62,6 +64,8 @@
 			const arcHeight = 60 + Math.random() * 30;
 			const start = performance.now();
 
+			context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_multiplier_up', forcePlay: true });
+
 			const step = (now: number) => {
 				const elapsed = now - start;
 				const t = Math.min(elapsed / duration, 1);
@@ -76,8 +80,21 @@
 				if (t < 1) {
 					requestAnimationFrame(step);
 				} else {
+					// Le symbole devient WILD exactement au moment ou le coeur
+					// touche sa case (pas avant, pas apres).
+					const pos = props.positions?.[index];
+					if (pos) {
+						const reelSymbol =
+							context.stateGame.board[pos.reelIndex]?.reelState?.symbols[pos.rowIndex + 1];
+						if (reelSymbol) {
+							reelSymbol.rawSymbol = { name: 'W', wild: true };
+						}
+					}
+					context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_wild_explode', forcePlay: true });
+					// Le coeur disparait immediatement : le vrai symbole WILD
+					// prend le relais visuellement a cet instant precis.
+					hearts[index].alpha = 0;
 					resolve();
-					fadeOut(index);
 				}
 			};
 

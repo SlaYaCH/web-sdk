@@ -32,6 +32,9 @@
 	context.eventEmitter.subscribeOnMount({
 		winShow: () => (show = true),
 		winHide: () => (show = false),
+		spinStart: () => {
+			if (show) oncomplete();
+		},
 		winUpdate: async (emitterEvent) => {
 			amount = emitterEvent.amount;
 			winLevelData = emitterEvent.winLevelData;
@@ -54,7 +57,8 @@
 					onmount={async () => {
 						await startCountUp();
 						await waitForTimeout(300);
-						oncomplete();
+						// Reste affiche jusqu'au prochain spin (ou un clic manuel via
+						// PressToContinue) - plus de fermeture automatique ici.
 					}}
 				/>
 

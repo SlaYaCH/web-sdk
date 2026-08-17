@@ -9,6 +9,8 @@ import { stateGame, stateGameDerived } from './stateGame.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
 import config from './config';
+const freeSpinMusicName = () => (stateGame.tier === 'after_dark' ? 'bgm_after_dark' : 'bgm_speed_dating');
+
 const winLevelSoundsPlay = ({ winLevelData }: { winLevelData: WinLevelData }) => {
 	if (winLevelData?.alias === 'max') eventEmitter.broadcastAsync({ type: 'uiHide' });
 	if (winLevelData?.sound?.sfx) {
@@ -24,9 +26,9 @@ const winLevelSoundsPlay = ({ winLevelData }: { winLevelData: WinLevelData }) =>
 const winLevelSoundsStop = () => {
 	eventEmitter.broadcast({ type: 'soundStop', name: 'sfx_bigwin_coinloop' });
 	if (stateBet.activeBetModeKey === 'SUPERSPIN' || stateGame.gameType === 'freegame') {
-		eventEmitter.broadcast({ type: 'soundMusic', name: 'bgm_freespin' });
+		eventEmitter.broadcast({ type: 'soundMusic', name: freeSpinMusicName() });
 	} else {
-		eventEmitter.broadcast({ type: 'soundMusic', name: 'bgm_main' });
+		eventEmitter.broadcast({ type: 'soundMusic', name: 'bgm_main_louvo' });
 	}
 	eventEmitter.broadcastAsync({ type: 'uiShow' });
 };
@@ -56,7 +58,10 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	// deviner depuis le plateau, ni de risquer qu'un simple WILD déclenche
 	// une bannière par erreur.
 	matchDuelReveal: async (bookEvent: BookEventOfType<'matchDuelReveal'>) => {
-		await eventEmitter.broadcastAsync({
+		// Ne bloque plus la suite de la sequence : la banniere reste affichee
+		// indefiniment (voir SpecialRevealOverlay) et se fermera uniquement au
+		// prochain spin (spinStart -> forceClose), pas sur un minuteur.
+		eventEmitter.broadcast({
 			type: 'specialRevealShow',
 			reelIndex: bookEvent.reelIndex,
 			symbol: 'M',
@@ -65,7 +70,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
-		await eventEmitter.broadcastAsync({
+		// Ne bloque plus la suite de la sequence, meme raison que matchDuelReveal.
+		eventEmitter.broadcast({
 			type: 'specialRevealShow',
 			reelIndex: bookEvent.reelIndex,
 			symbol: 'K',
@@ -104,7 +110,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		await eventEmitter.broadcastAsync({ type: 'transition' });
 		eventEmitter.broadcast({ type: 'freeSpinIntroShow' });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'jng_intro_fs' });
-		eventEmitter.broadcast({ type: 'soundMusic', name: 'bgm_freespin' });
+		eventEmitter.broadcast({ type: 'soundMusic', name: freeSpinMusicName() });
 		await eventEmitter.broadcastAsync({
 			type: 'freeSpinIntroUpdate',
 			totalFreeSpins: bookEvent.totalFs,

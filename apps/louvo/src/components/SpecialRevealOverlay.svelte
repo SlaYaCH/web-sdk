@@ -66,7 +66,7 @@ import SuperlikeHeartThrow from './SuperlikeHeartThrow.svelte';
 				x={bannerX}
 				y={BOARD_SIZES.height / 2}
 				zIndex={30}
-				holdMs={6000}
+				holdMs={Infinity}
 				forceClose={forceClose}
 				oncomplete={() => resolveShow()}
 			/>

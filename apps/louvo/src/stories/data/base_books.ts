@@ -1,7 +1,7 @@
 export default [
   {
     "id": 0,
-    "payoutMultiplier": 24,
+    "payoutMultiplier": 30,
     "events": [
       {
         "index": 0,
@@ -12,7 +12,7 @@ export default [
               "name": "H3"
             },
             {
-              "name": "H4"
+              "name": "L1"
             },
             {
               "name": "L4"
@@ -21,7 +21,53 @@ export default [
               "name": "H5"
             },
             {
+              "name": "H3"
+            },
+            {
+              "name": "H4"
+            },
+            {
+              "name": "L4"
+            }
+          ],
+          [
+            {
+              "name": "H4"
+            },
+            {
               "name": "L1"
+            },
+            {
+              "name": "L2"
+            },
+            {
+              "name": "H5"
+            },
+            {
+              "name": "H4"
+            },
+            {
+              "name": "L4"
+            },
+            {
+              "name": "L2"
+            }
+          ],
+          [
+            {
+              "name": "L4"
+            },
+            {
+              "name": "L1"
+            },
+            {
+              "name": "H3"
+            },
+            {
+              "name": "H5"
+            },
+            {
+              "name": "L4"
             },
             {
               "name": "L2"
@@ -32,13 +78,13 @@ export default [
           ],
           [
             {
+              "name": "L2"
+            },
+            {
+              "name": "L1"
+            },
+            {
               "name": "H4"
-            },
-            {
-              "name": "L4"
-            },
-            {
-              "name": "H3"
             },
             {
               "name": "H5"
@@ -47,7 +93,7 @@ export default [
               "name": "L2"
             },
             {
-              "name": "L1"
+              "name": "H3"
             },
             {
               "name": "H4"
@@ -55,33 +101,10 @@ export default [
           ],
           [
             {
-              "name": "L4"
-            },
-            {
               "name": "H3"
-            },
-            {
-              "name": "H4"
-            },
-            {
-              "name": "H5"
             },
             {
               "name": "L1"
-            },
-            {
-              "name": "L2"
-            },
-            {
-              "name": "L4"
-            }
-          ],
-          [
-            {
-              "name": "H3"
-            },
-            {
-              "name": "H4"
             },
             {
               "name": "L4"
@@ -90,36 +113,13 @@ export default [
               "name": "H5"
             },
             {
-              "name": "L2"
-            },
-            {
-              "name": "L1"
-            },
-            {
               "name": "H3"
-            }
-          ],
-          [
+            },
             {
               "name": "H4"
             },
             {
               "name": "L4"
-            },
-            {
-              "name": "H3"
-            },
-            {
-              "name": "H5"
-            },
-            {
-              "name": "L1"
-            },
-            {
-              "name": "L2"
-            },
-            {
-              "name": "H4"
             }
           ]
         ],
@@ -148,8 +148,42 @@ export default [
       {
         "index": 2,
         "type": "winInfo",
-        "totalWin": 24,
+        "totalWin": 30,
         "wins": [
+          {
+            "symbol": "L1",
+            "kind": 3,
+            "win": 10,
+            "positions": [
+              {
+                "reel": 0,
+                "row": 0
+              },
+              {
+                "reel": 1,
+                "row": 0
+              },
+              {
+                "reel": 2,
+                "row": 0
+              },
+              {
+                "reel": 3,
+                "row": 0
+              },
+              {
+                "reel": 4,
+                "row": 0
+              }
+            ],
+            "meta": {
+              "lineIndex": 1,
+              "multiplier": 1,
+              "winWithoutMult": 10,
+              "globalMult": 1,
+              "lineMultiplier": 1
+            }
+          },
           {
             "symbol": "H5",
             "kind": 3,
@@ -183,92 +217,24 @@ export default [
               "globalMult": 1,
               "lineMultiplier": 1
             }
-          },
-          {
-            "symbol": "L2",
-            "kind": 3,
-            "win": 2,
-            "positions": [
-              {
-                "reel": 0,
-                "row": 4
-              },
-              {
-                "reel": 1,
-                "row": 3
-              },
-              {
-                "reel": 2,
-                "row": 4
-              },
-              {
-                "reel": 3,
-                "row": 3
-              },
-              {
-                "reel": 4,
-                "row": 4
-              }
-            ],
-            "meta": {
-              "lineIndex": 13,
-              "multiplier": 1,
-              "winWithoutMult": 2,
-              "globalMult": 1,
-              "lineMultiplier": 1
-            }
-          },
-          {
-            "symbol": "L1",
-            "kind": 3,
-            "win": 2,
-            "positions": [
-              {
-                "reel": 0,
-                "row": 3
-              },
-              {
-                "reel": 1,
-                "row": 4
-              },
-              {
-                "reel": 2,
-                "row": 3
-              },
-              {
-                "reel": 3,
-                "row": 4
-              },
-              {
-                "reel": 4,
-                "row": 3
-              }
-            ],
-            "meta": {
-              "lineIndex": 9,
-              "multiplier": 1,
-              "winWithoutMult": 2,
-              "globalMult": 1,
-              "lineMultiplier": 1
-            }
           }
         ]
       },
       {
         "index": 3,
         "type": "setWin",
-        "amount": 24,
+        "amount": 30,
         "winLevel": 5
       },
       {
         "index": 4,
         "type": "setTotalWin",
-        "amount": 24
+        "amount": 30
       },
       {
         "index": 5,
         "type": "finalWin",
-        "amount": 24
+        "amount": 30
       }
     ],
     "criteria": "basegame",

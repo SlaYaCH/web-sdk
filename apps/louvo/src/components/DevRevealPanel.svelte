@@ -47,6 +47,9 @@
 	const setTier = (tier: 'basegame' | 'speed_dating' | 'after_dark') => {
 		context.stateGame.gameType = tier === 'basegame' ? 'basegame' : 'freegame';
 		context.stateGame.tier = tier;
+		const musicName =
+			tier === 'after_dark' ? 'bgm_after_dark' : tier === 'speed_dating' ? 'bgm_speed_dating' : 'bgm_main_louvo';
+		context.eventEmitter.broadcast({ type: 'soundMusic', name: musicName });
 	};
 </script>
 
