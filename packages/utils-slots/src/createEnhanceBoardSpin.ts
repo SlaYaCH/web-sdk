@@ -46,7 +46,7 @@ export function createEnhanceBoardSpin<TReel extends Reel<any, any>>({
 			noStop: boolean;
 			isAnticipated: boolean;
 		}) => {
-			if (isAnticipated) return 'anticipated';
+			if (isAnticipated && !stateBet.isSuperTurbo) return 'anticipated';
 			if (noStop) return 'normal';
 			return globalSpinType;
 		};

@@ -69,6 +69,13 @@ export const SPIN_OPTIONS_FAST = {
 	reelBounceSizeMulti: 0.05,
 };
 
+export const SPIN_OPTIONS_SUPERFAST = {
+	...SPIN_OPTIONS_SHARED,
+	reelPreSpinSpeed: 9,
+	reelSpinSpeed: 9,
+	reelBounceSizeMulti: 0.02,
+};
+
 export const MOTION_BLUR_VELOCITY = 31;
 
 export const zIndexes = {
@@ -84,6 +91,9 @@ const portraitSizeRatios = { width: 1, height: 1 };
 const baseSymbolSizeRatios = { width: 1, height: 1 };
 // WILD / MATCH / DATE : images 1536x1024 (paysage, ratio 1.5:1)
 const wideSizeRatios = { width: 1.5, height: 1 };
+// Wild specifiquement 10% plus petit que M/S (qui partagent wideSizeRatios) -
+// evite que le haut du symbole deborde de sa case.
+const wildSizeRatios = { width: 1.5 * 0.9, height: 1 * 0.9 };
 // SUPER LIKE : image 1024x1536 (portrait, ratio 1:1.5)
 const tallSizeRatios = { width: 1 / 1.5, height: 1 };
 
@@ -99,7 +109,7 @@ const l2Static = { type: 'sprite', assetKey: 'L2', sizeRatios: baseSymbolSizeRat
 const l3Static = { type: 'sprite', assetKey: 'L3', sizeRatios: baseSymbolSizeRatios };
 const l4Static = { type: 'sprite', assetKey: 'L4', sizeRatios: baseSymbolSizeRatios };
 
-const wStatic = { type: 'sprite', assetKey: 'W', sizeRatios: wideSizeRatios };
+const wStatic = { type: 'sprite', assetKey: 'W', sizeRatios: wildSizeRatios };
 const mStatic = { type: 'sprite', assetKey: 'M', sizeRatios: wideSizeRatios };
 const sStatic = { type: 'sprite', assetKey: 'S', sizeRatios: wideSizeRatios };
 const kStatic = { type: 'sprite', assetKey: 'K', sizeRatios: tallSizeRatios };

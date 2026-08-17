@@ -18,6 +18,7 @@ import {
 	BOARD_DIMENSIONS,
 	SPIN_OPTIONS_DEFAULT,
 	SPIN_OPTIONS_FAST,
+	SPIN_OPTIONS_SUPERFAST,
 	INITIAL_SYMBOL_STATE,
 	SCATTER_LAND_SOUND_MAP,
 } from './constants';
@@ -55,8 +56,10 @@ const board = _.range(BOARD_DIMENSIONS.x).map((reelIndex) => {
 		onSymbolLand,
 	});
 
-	reel.reelState.spinOptions = () =>
-		reel.reelState.spinType === 'fast' ? SPIN_OPTIONS_FAST : SPIN_OPTIONS_DEFAULT;
+	reel.reelState.spinOptions = () => {
+		if (reel.reelState.spinType !== 'fast') return SPIN_OPTIONS_DEFAULT;
+		return stateBet.isSuperTurbo ? SPIN_OPTIONS_SUPERFAST : SPIN_OPTIONS_FAST;
+	};
 
 	return reel;
 });
@@ -77,17 +80,28 @@ export type MultiplierSymbol = {
 export const stateGame = $state({
 	board,
 	gameType: 'basegame' as GameType,
+	tier: 'basegame' as 'basegame' | 'speed_dating' | 'after_dark',
 	multiplierBoard: [] as (MultiplierSymbol | undefined)[][],
 	scatterCounter: 0,
+	streakTier: 0,
+	streakLikes: 0,
 });
 
-const boardLayout = () => ({
-	x: stateLayoutDerived.mainLayout().width * ((GRID_LEFT_FRAC + GRID_RIGHT_FRAC) / 2),
-	y: stateLayoutDerived.mainLayout().height * ((GRID_TOP_FRAC + GRID_BOTTOM_FRAC) / 2),
-	anchor: { x: 0.5, y: 0.5 },
-	pivot: { x: BOARD_SIZES.width / 2, y: BOARD_SIZES.height / 2 },
-	...BOARD_SIZES,
-});
+// 0,5% - descend tout le bloc en After Dark (cadre plus grand que la base)
+const AFTER_DARK_Y_ADJUST_FRAC = 0.005;
+
+const boardLayout = () => {
+	const afterDarkYAdjust = stateGame.tier === 'after_dark' ? AFTER_DARK_Y_ADJUST_FRAC : 0;
+	return {
+		x: stateLayoutDerived.mainLayout().width * ((GRID_LEFT_FRAC + GRID_RIGHT_FRAC) / 2),
+		y:
+			stateLayoutDerived.mainLayout().height *
+			((GRID_TOP_FRAC + GRID_BOTTOM_FRAC) / 2 + afterDarkYAdjust),
+		anchor: { x: 0.5, y: 0.5 },
+		pivot: { x: BOARD_SIZES.width / 2, y: BOARD_SIZES.height / 2 },
+		...BOARD_SIZES,
+	};
+};
 
 const boardRaw = () =>
 	board.map((reel) => reel.reelState.symbols.map((reelSymbol) => reelSymbol.rawSymbol));

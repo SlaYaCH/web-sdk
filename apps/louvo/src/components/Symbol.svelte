@@ -21,12 +21,19 @@
 	// apparaissent - toujours affichés par-dessus le cadre de grille (zIndex 20
 	// > zIndex 10 du cadre), pour un effet "rouleau étendu" bien visible.
 	const isExpandingSymbol = $derived(props.rawSymbol.name === 'M' || props.rawSymbol.name === 'K');
+	const isWild = $derived(props.rawSymbol.name === 'W');
+	const WILD_Y_OFFSET = 2; // pousse le sprite wild vers le bas de sa case (remonte de 3px supplementaires)
+	const WILD_X_OFFSET = -3; // decale le sprite wild vers la gauche (~1mm)
+	const MULTIPLIER_BADGE_Y_OFFSET = 27; // decale le badge sous le mot WILD (remonte de ~2mm)
+	const adjustedX = $derived((props.x ?? 0) + (isWild ? WILD_X_OFFSET : 0));
+	const adjustedY = $derived((props.y ?? 0) + (isWild ? WILD_Y_OFFSET : 0));
+	const badgeY = $derived((props.y ?? 0) + (isWild ? MULTIPLIER_BADGE_Y_OFFSET : 0));
 </script>
 {#if isSprite}
 	<SymbolSprite
 		{symbolInfo}
-		x={props.x}
-		y={props.y}
+		x={adjustedX}
+		y={adjustedY}
 		oncomplete={props.oncomplete}
 		zIndex={isExpandingSymbol ? 20 : undefined}
 	/>
@@ -51,12 +58,12 @@
 	<BitmapText
 		anchor={0.5}
 		x={props.x}
-		y={props.y}
+		y={badgeY}
 		text={`${props.rawSymbol.multiplier}X`}
 		zIndex={isExpandingSymbol ? 20 : undefined}
 		style={{
-			fontFamily: 'gold',
-			fontSize: 50,
+			fontFamily: 'gold', fill: 0xffffff,
+			fontSize: 34,
 		}}
 	/>
 {/if}

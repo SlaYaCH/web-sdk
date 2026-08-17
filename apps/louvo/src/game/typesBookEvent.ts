@@ -1,7 +1,5 @@
 import type { BetType } from 'rgs-requests';
-
 import type { SymbolName, RawSymbol, GameType, Position } from './types';
-
 // book events shared with scatter game
 type BookEventReveal = {
 	index: number;
@@ -11,47 +9,41 @@ type BookEventReveal = {
 	anticipation: number[];
 	gameType: GameType;
 };
-
 type BookEventSetTotalWin = {
 	index: number;
 	type: 'setTotalWin';
 	amount: number;
 };
-
 type BookEventFinalWin = {
 	index: number;
 	type: 'finalWin';
 	amount: number;
 };
-
 type BookEventFreeSpinTrigger = {
 	index: number;
 	type: 'freeSpinTrigger';
 	totalFs: number;
 	positions: Position[];
+	tier?: 'speed_dating' | 'after_dark';
 };
-
 type BookEventUpdateFreeSpin = {
 	index: number;
 	type: 'updateFreeSpin';
 	amount: number;
 	total: number;
 };
-
 type BookEventSetWin = {
 	index: number;
 	type: 'setWin';
 	amount: number;
 	winLevel: number;
 };
-
 type BookEventFreeSpinEnd = {
 	index: number;
 	type: 'freeSpinEnd';
 	amount: number;
 	winLevel: number;
 };
-
 type BookEventWinInfo = {
 	index: number;
 	type: 'winInfo';
@@ -70,14 +62,28 @@ type BookEventWinInfo = {
 		};
 	}[];
 };
-
 // customised
 type BookEventCreateBonusSnapshot = {
 	index: number;
 	type: 'createBonusSnapshot';
 	bookEvents: BookEvent[];
 };
-
+type BookEventMatchDuelReveal = {
+	index: number;
+	type: 'matchDuelReveal';
+	reelIndex: number;
+	multiplier: number;
+	duelValues: [number, number];
+};
+type BookEventSuperlikeReveal = {
+	index: number;
+	type: 'superlikeReveal';
+	reelIndex: number;
+	multiplier: number;
+	likes: number;
+	streakTier: number;
+	likePositions: { reelIndex: number; rowIndex: number }[];
+};
 export type BookEvent =
 	| BookEventReveal
 	| BookEventWinInfo
@@ -89,8 +95,9 @@ export type BookEvent =
 	| BookEventSetWin
 	| BookEventFreeSpinEnd
 	// customised
-	| BookEventCreateBonusSnapshot;
-
+	| BookEventCreateBonusSnapshot
+	| BookEventMatchDuelReveal
+	| BookEventSuperlikeReveal;
 export type Bet = BetType<BookEvent>;
 export type BookEventOfType<T> = Extract<BookEvent, { type: T }>;
 export type BookEventContext = { bookEvents: BookEvent[] };

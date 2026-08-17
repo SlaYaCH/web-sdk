@@ -5,8 +5,10 @@
 	import { SECOND } from 'constants-shared/time';
 	import { getContext } from '../game/context';
 	const context = getContext();
-	const showBaseBackground = $derived(context.stateGame.gameType === 'basegame');
-	const showFeatureBackground = $derived(context.stateGame.gameType === 'freegame');
+	const showBaseBackground = $derived(
+		context.stateGame.gameType === 'basegame' || context.stateGame.tier === 'speed_dating',
+	);
+	const showFeatureBackground = $derived(context.stateGame.tier === 'after_dark');
 </script>
 <Rectangle {...context.stateLayoutDerived.canvasSizes()} backgroundColor={0x000000} zIndex={-3} />
 <MainContainer>

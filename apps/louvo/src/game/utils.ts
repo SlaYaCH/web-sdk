@@ -5,7 +5,8 @@ import { stateBet } from 'state-shared';
 import { createPlayBookUtils } from 'utils-book';
 import { createGetEmptyPaddedBoard } from 'utils-slots';
 
-import { SYMBOL_WIDTH, REEL_PADDING, SYMBOL_INFO_MAP, BOARD_DIMENSIONS } from './constants';
+import { SYMBOL_WIDTH, REEL_PADDING, SYMBOL_INFO_MAP, BOARD_DIMENSIONS, BOARD_SIZES } from './constants';
+import { stateGame } from './stateGame.svelte';
 import { eventEmitter } from './eventEmitter';
 import type { Bet, BookEventOfType } from './typesBookEvent';
 import { bookEventHandlerMap } from './bookEventHandlerMap';
@@ -15,6 +16,10 @@ import type { RawSymbol, SymbolState } from './types';
 export const { getEmptyBoard } = createGetEmptyPaddedBoard({ reelsDimensions: BOARD_DIMENSIONS });
 export const { playBookEvent, playBookEvents } = createPlayBookUtils({ bookEventHandlerMap });
 export const playBet = async (bet: Bet) => {
+	// Signale qu'un nouveau spin demarre - permet a une UI encore ouverte
+	// (ex: banniere de reveal du spin precedent) de se refermer d'elle-meme
+	// au lieu de dependre d'un minuteur arbitraire.
+	eventEmitter.broadcast({ type: 'spinStart' });
 	stateBet.winBookEventAmount = 0;
 	await playBookEvents(bet.state);
 	eventEmitter.broadcast({ type: 'stopButtonEnable' });
@@ -51,7 +56,19 @@ export const convertTorResumableBet = (betToResume: Bet) => {
 };
 
 // other utils
-export const getSymbolX = (reelIndex: number) => SYMBOL_WIDTH * (reelIndex + REEL_PADDING);
+// Decalages horizontaux specifiques au palier After Dark (le cadre y est
+// plus grand) - mesures en jeu par colonne, en % de la largeur totale du
+// plateau (BOARD_SIZES.width). Negatif = vers la gauche, positif = vers la
+// droite. Un seul tableau a modifier si besoin d'affiner encore.
+const AFTER_DARK_COLUMN_ADJUST_FRAC = [-0.035, -0.02, -0.005, 0.015, 0.03];
+
+export const getSymbolX = (reelIndex: number) => {
+	const base = SYMBOL_WIDTH * (reelIndex + REEL_PADDING);
+	if (stateGame.tier === 'after_dark') {
+		return base + AFTER_DARK_COLUMN_ADJUST_FRAC[reelIndex] * BOARD_SIZES.width;
+	}
+	return base;
+};
 // Centres exacts de chaque rangee, mesures precisement dans l'image de
 // fond source (1672x941), convertis en fractions.
 const ROW_CENTERS_FRAC = [

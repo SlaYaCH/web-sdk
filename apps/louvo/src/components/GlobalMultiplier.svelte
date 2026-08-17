@@ -93,7 +93,7 @@
 							anchor={0.5}
 							text={`${Math.round(previousMultiplier.current)}×`}
 							style={{
-								fontFamily: 'gold',
+								fontFamily: 'gold', fill: 0xff2d6a,
 								fontSize: SYMBOL_SIZE * 5.2,
 							}}
 						/>
@@ -103,7 +103,7 @@
 							anchor={0.5}
 							text={`${multiplier}×`}
 							style={{
-								fontFamily: 'gold',
+								fontFamily: 'gold', fill: 0xff2d6a,
 								fontSize: SYMBOL_SIZE * 5.2,
 							}}
 						/>

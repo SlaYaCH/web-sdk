@@ -8,6 +8,8 @@ import type { EmitterEventWin } from '../components/Win.svelte';
 import type { EmitterEventSound } from '../components/Sound.svelte';
 import type { EmitterEventTransition } from '../components/Transition.svelte';
 
+export type EmitterEventSpin = { type: 'spinStart' };
+
 export type EmitterEventGame =
 	| EmitterEventBoard
 	| EmitterEventBoardFrame
@@ -17,4 +19,5 @@ export type EmitterEventGame =
 	| EmitterEventFreeSpinOutro
 	| EmitterEventSpecialReveal
 	| EmitterEventSound
-	| EmitterEventTransition;
+	| EmitterEventTransition
+	| EmitterEventSpin;

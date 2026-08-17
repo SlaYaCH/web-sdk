@@ -7,8 +7,10 @@
 	import { Sprite } from 'pixi-svelte';
 	import { getContext } from '../game/context';
 	const context = getContext();
-	const showBaseFrame = $derived(context.stateGame.gameType === 'basegame');
-	const showFeatureFrame = $derived(context.stateGame.gameType === 'freegame');
+	const showBaseFrame = $derived(
+		context.stateGame.gameType === 'basegame' || context.stateGame.tier === 'speed_dating',
+	);
+	const showFeatureFrame = $derived(context.stateGame.tier === 'after_dark');
 
 	context.eventEmitter.subscribeOnMount({
 		boardFrameGlowShow: () => {},

@@ -72,7 +72,7 @@
 			<BitmapText
 				text={'FREE SPIN'}
 				style={{
-					fontFamily: 'gold',
+					fontFamily: 'gold', fill: 0xff2d6a,
 					fontSize,
 					wordWrap: false,
 				}}
@@ -83,7 +83,7 @@
 				{...counterPosition}
 				anchor={{ x: 0.5, y: 0 }}
 				style={{
-					fontFamily: 'gold',
+					fontFamily: 'gold', fill: 0xff2d6a,
 					fontSize,
 				}}
 				onresize={(sizes) => (counterSizes = sizes)}
