@@ -27,13 +27,13 @@
 	let amountAlpha = $state(0);
 
 	const points = props.positions.map((p) => {
-		const rawIndex = p.row - 1;
-		// Pour la rangee du haut (row=0), rawIndex vaut -1 : on extrapole sa
-		// position en reculant d'un ecart de rangee depuis l'indice 0, au
-		// lieu de bloquer sur l'indice 0 (ce qui la confondait avec la
-		// rangee suivante).
+		// Confirme en jeu reel (Stake Engine) : chaque ligne s'affichait
+		// systematiquement une case en dessous de sa vraie position, sur
+		// TOUTES les rangees (pas juste la rangee du haut) - decalage d'un
+		// cran de plus par rapport a la version precedente.
+		const rawIndex = p.row - 2;
 		const rowGap = getSymbolY(1) - getSymbolY(0);
-		const y = rawIndex >= 0 ? getSymbolY(rawIndex) - 18 : getSymbolY(0) - rowGap - 18;
+		const y = rawIndex >= 0 ? getSymbolY(rawIndex) - 18 : getSymbolY(0) + rawIndex * rowGap - 18;
 		return {
 			x: getSymbolX(p.reel),
 			y,

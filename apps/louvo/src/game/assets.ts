@@ -209,4 +209,8 @@ export default {
 		src: new URL('../../assets/audio/sounds.json', import.meta.url).href,
 		preload: true,
 	},
+	louvoLogo: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/ui/louvo_logo.png', import.meta.url).href,
+	},
 } as const;

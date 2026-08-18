@@ -35,7 +35,6 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	import FreeSpinCounter from './FreeSpinCounter.svelte';
 	import FreeSpinOutro from './FreeSpinOutro.svelte';
 	import Transition from './Transition.svelte';
-	import I18nTest from './I18nTest.svelte';
 
 	const context = getContext();
 
@@ -130,17 +129,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 			<UiGameName name="LINES GAME" />
 		</Container>
 		<Container x={context.stateLayoutDerived.canvasSizes().width - 20}>
-			<Text
-				anchor={{ x: 1, y: 0 }}
-				text="ADD YOUR LOGO"
-				style={{
-					fontFamily: 'proxima-nova',
-					fontSize: REM * 1.5,
-					fontWeight: '600',
-					lineHeight: REM * 2,
-					fill: 0xffffff,
-				}}
-			/>
+			<Sprite key="louvoLogo" anchor={{ x: 1, y: 0 }} width={100} height={72.8} />
 		</Container>
 		<MainContainer standard alignVertical="bottom">
 			<Container
@@ -202,7 +191,6 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		<FreeSpinOutro />
 		<Transition />
 
-		<I18nTest />
 	{/if}
 </App>
 

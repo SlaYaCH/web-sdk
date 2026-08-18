@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { recordBookEvent, checkIsMultipleRevealEvents, type BookEventHandlerMap } from 'utils-book';
-import { stateBet, stateUi } from 'state-shared';
+import { stateBet, stateBetDerived, stateUi } from 'state-shared';
 import { sequence } from 'utils-shared/sequence';
 import { eventEmitter } from './eventEmitter';
 import { playBookEvent } from './utils';
