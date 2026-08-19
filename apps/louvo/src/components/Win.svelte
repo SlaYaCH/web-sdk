@@ -84,13 +84,20 @@
 					>
 						{#if winLevelData?.animation}
 							<WinAnimation animationMap={winLevelData.animation}>
+								<Rectangle
+									anchor={0.5}
+									width={SYMBOL_SIZE * 7.2}
+									height={SYMBOL_SIZE * 1.7}
+									backgroundColor={0x000000}
+									alpha={0.6}
+								/>
 								<ResponsiveBitmapText
 									anchor={0.5}
-									maxWidth={2130}
+									maxWidth={SYMBOL_SIZE * 6.8}
 									text={bookEventAmountToCurrencyString(countUpAmount)}
 									style={{
 										fontFamily: 'gold', fill: 0xff2d6a,
-										fontSize: SYMBOL_SIZE * 3.6,
+										fontSize: SYMBOL_SIZE * 1.25,
 										align: 'center',
 										fontWeight: 'bold',
 										letterSpacing: 0,

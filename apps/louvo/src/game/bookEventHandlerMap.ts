@@ -54,6 +54,17 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		for (const reel of stateGame.board) {
 			if (reel.reelState?.anticipating) reel.reelState.anticipating = false;
 		}
+		// L'anticipation calculee par le math compte AUSSI les scatters des rangees
+		// de padding (invisibles) : on la neutralise tant que moins de 2 DATE
+		// VISIBLES ne sont tombes sur les rouleaux precedents.
+		{
+			let cumulVisibles = 0;
+			bookEvent.anticipation = bookEvent.anticipation.map((value, i) => {
+				const keep = cumulVisibles >= 2 ? value : 0;
+				cumulVisibles += bookEvent.board[i].slice(1, -1).filter((s) => s.name === 'S').length;
+				return keep;
+			});
+		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
@@ -83,6 +94,13 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
+		// Attend la fin des lancers d'un Super Like PRECEDENT avant d'en demarrer
+		// un autre - sinon sa promesse serait ecrasee ici et le garde du reveal
+		// ne pourrait plus l'attendre : deux distributions se chevaucheraient.
+		if (stateGame.superlikeAnimationPromise && stateGame.superlikeAnimationEpoch < stateGame.bannerEpoch) {
+			await stateGame.superlikeAnimationPromise;
+			stateGame.superlikeAnimationPromise = null;
+		}
 		stateGame.superlikeHeartsLaunched = 0;
 		console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));
 		stateGame.superlikeAnimationEpoch = stateGame.bannerEpoch;
