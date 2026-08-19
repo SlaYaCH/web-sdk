@@ -70,6 +70,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
+		stateGame.superlikeHeartsLaunched = 0;
 		// Ne bloque plus la suite de la sequence, meme raison que matchDuelReveal.
 		eventEmitter.broadcast({
 			type: 'specialRevealShow',
@@ -103,6 +104,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
 		stateBetDerived.updateIsTurbo(false, { persistent: true });
 		stateBet.isSuperTurbo = false;
+		stateGame.tier = bookEvent.tier ?? 'speed_dating';
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_scatter_win_v2' });
 		await animateSymbols({ positions: bookEvent.positions });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_superfreespin' });
@@ -116,7 +118,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			totalFreeSpins: bookEvent.totalFs,
 		});
 		stateGame.gameType = 'freegame';
-		stateGame.tier = bookEvent.tier ?? 'speed_dating';
 		stateGame.streakTier = 0;
 		stateGame.streakLikes = 0;
 		eventEmitter.broadcast({ type: 'freeSpinIntroHide' });

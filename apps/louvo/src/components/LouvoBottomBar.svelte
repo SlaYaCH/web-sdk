@@ -141,7 +141,12 @@
 	>
 		<Sprite key="uiBonusIcon" anchor={0.5} width={90} height={90} />
 		{#if bonusActive}
-			<Rectangle anchor={0.5} width={90} height={90} alpha={0} borderColor={0xffffff} borderWidth={4} />
+			<Rectangle anchor={0.5} width={90} height={90} backgroundColor={0x1a0a14} borderColor={0xff2d6a} borderWidth={4} />
+			<Text
+				anchor={0.5}
+				text="OFF"
+				style={{ fontFamily: 'proxima-nova', fontWeight: '700', fontSize: 24, fill: 0xffffff }}
+			/>
 		{/if}
 	</Container>
 

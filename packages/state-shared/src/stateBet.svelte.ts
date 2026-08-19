@@ -20,6 +20,7 @@ export const stateBet = $state({
 	isSpaceHold: false,
 	isTurbo: false,
 	isSuperTurbo: false,
+	stopOnWin: false,
 });
 
 const correctBetAmount = (value: number) => {

@@ -6,8 +6,13 @@
 	import Anticipation from './Anticipation.svelte';
 
 	const context = getContext();
+	// Un DATE ne doit jamais declencher/rester en anticipation sur la
+	// colonne ou une banniere (Super Like/Match Duel) est deja affichee.
 	const hasAnticipation = $derived(
-		context.stateGame.board.some((reel) => reel.reelState.anticipating),
+		context.stateGame.board.some(
+			(reel) =>
+				reel.reelState.anticipating && !context.stateGame.activeBannerReelIndexes.includes(reel.reelIndex),
+		),
 	);
 </script>
 
@@ -31,7 +36,7 @@
 {/if}
 
 {#each context.stateGame.board as reel}
-	{#if reel.reelState.anticipating}
+	{#if reel.reelState.anticipating && !context.stateGame.activeBannerReelIndexes.includes(reel.reelIndex)}
 		<Anticipation {reel} oncomplete={() => (reel.reelState.anticipating = false)} />
 	{/if}
 {/each}

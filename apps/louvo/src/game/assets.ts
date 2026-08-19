@@ -1,4 +1,44 @@
 export default {
+	fsIntroNumber: {
+		type: 'spine',
+		src: {
+			img: new URL('../../assets/spines/fsIntro/fs_screen.webp', import.meta.url).href,
+			atlas: new URL('../../assets/spines/fsIntro/fs_screen.atlas', import.meta.url).href,
+			skeleton: new URL('../../assets/spines/fsIntro/fs_screen_number.json', import.meta.url).href,
+		},
+	},
+	fsOutroNumber: {
+		type: 'spine',
+		src: {
+			img: new URL('../../assets/spines/fsIntro/fs_screen.webp', import.meta.url).href,
+			atlas: new URL('../../assets/spines/fsIntro/fs_screen.atlas', import.meta.url).href,
+			skeleton: new URL('../../assets/spines/fsIntro/fs_total_number.json', import.meta.url).href,
+		},
+	},
+	fsIntro: {
+		type: 'spine',
+		src: {
+			img: new URL('../../assets/spines/fsIntro/fs_screen.webp', import.meta.url).href,
+			atlas: new URL('../../assets/spines/fsIntro/fs_screen.atlas', import.meta.url).href,
+			skeleton: new URL('../../assets/spines/fsIntro/fs_screen.json', import.meta.url).href,
+		},
+	},
+	anticipation: {
+		type: 'spine',
+		src: {
+			img: new URL('../../assets/spines/anticipation/anticipation.webp', import.meta.url).href,
+			atlas: new URL('../../assets/spines/anticipation/anticipation.atlas', import.meta.url).href,
+			skeleton: new URL('../../assets/spines/anticipation/anticipation.json', import.meta.url).href,
+		},
+	},
+	bigwin: {
+		type: 'spine',
+		src: {
+			img: new URL('../../assets/spines/bigwin/big_wins.webp', import.meta.url).href,
+			atlas: new URL('../../assets/spines/bigwin/big_wins.atlas', import.meta.url).href,
+			skeleton: new URL('../../assets/spines/bigwin/mm_bigwin.json', import.meta.url).href,
+		},
+	},
 	H1: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/portraits/h1_le_r.png', import.meta.url).href,

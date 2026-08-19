@@ -6,7 +6,7 @@
 </script>
 
 <script lang="ts">
-	import { CanvasSizeRectangle } from 'components-layout';
+	import { CanvasSizeRectangle, MainContainer } from 'components-layout';
 	import { stateUrlDerived } from 'state-shared';
 	import { FadeContainer } from 'components-pixi';
 	import { waitForResolve } from 'utils-shared/wait';
@@ -41,6 +41,16 @@
 
 <FadeContainer {show}>
 	<CanvasSizeRectangle backgroundColor={0x000000} backgroundAlpha={0.5} />
+	<MainContainer>
+		<Sprite
+			anchor={0.5}
+			x={context.stateLayoutDerived.mainLayout().width * 0.5}
+			y={context.stateLayoutDerived.mainLayout().height * 0.5}
+			width={context.stateLayoutDerived.mainLayout().width}
+			height={context.stateLayoutDerived.mainLayout().height}
+			key={context.stateGame.tier === 'after_dark' ? 'afterDarkAnnounce' : 'speedDatingAnnounce'}
+		/>
+	</MainContainer>
 
 	<FreeSpinAnimation>
 		{#snippet children({ sizes })}

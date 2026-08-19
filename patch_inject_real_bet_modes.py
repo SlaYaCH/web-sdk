@@ -1,15 +1,16 @@
-import { setContextEventEmitter, getContextEventEmitter } from 'utils-event-emitter';
-import { setContextXstate, getContextXstate } from 'utils-xstate';
-import { setContextLayout, getContextLayout } from 'utils-layout';
-import { setContextApp, getContextApp } from 'pixi-svelte';
+path = "apps/louvo/src/game/context.ts"
+with open(path, "r") as f:
+    content = f.read()
 
-import { eventEmitter, type EmitterEvent } from './eventEmitter';
-import { stateXstate, stateXstateDerived } from './stateXstate';
-import { stateLayout, stateLayoutDerived } from './stateLayout';
-import { stateApp } from './stateApp';
+old = """import { i18nDerived } from '../i18n/i18nDerived';
+export const setContext = () => {
+	setContextEventEmitter<EmitterEvent>({ eventEmitter });
+	setContextXstate({ stateXstate, stateXstateDerived });
+	setContextLayout({ stateLayout, stateLayoutDerived });
+	setContextApp({ stateApp });
+};"""
 
-import { stateGame, stateGameDerived } from './stateGame.svelte';
-import { i18nDerived } from '../i18n/i18nDerived';
+new = """import { i18nDerived } from '../i18n/i18nDerived';
 import { stateMeta } from 'state-shared';
 
 const LOUVO_BET_MODE_SHAPE = (mode: string, costMultiplier: number) => ({
@@ -29,24 +30,24 @@ const LOUVO_BET_MODE_SHAPE = (mode: string, costMultiplier: number) => ({
 const LOUVO_REAL_BET_MODES = {
 	BONUS_AFTER_DARK: LOUVO_BET_MODE_SHAPE('BONUS_AFTER_DARK', 150.0),
 	BONUS_SPEED_DATING: LOUVO_BET_MODE_SHAPE('BONUS_SPEED_DATING', 80.0),
-	MATCH_BOOST: { ...LOUVO_BET_MODE_SHAPE('MATCH_BOOST', 3.0), type: 'activate' as const },
-	MATCH_FRENZY: { ...LOUVO_BET_MODE_SHAPE('MATCH_FRENZY', 60.0), type: 'activate' as const },
-	LIKE_STORM: { ...LOUVO_BET_MODE_SHAPE('LIKE_STORM', 60.0), type: 'activate' as const },
+	MATCH_BOOST: LOUVO_BET_MODE_SHAPE('MATCH_BOOST', 3.0),
+	MATCH_FRENZY: LOUVO_BET_MODE_SHAPE('MATCH_FRENZY', 60.0),
+	LIKE_STORM: LOUVO_BET_MODE_SHAPE('LIKE_STORM', 60.0),
 };
+
 export const setContext = () => {
 	setContextEventEmitter<EmitterEvent>({ eventEmitter });
 	setContextXstate({ stateXstate, stateXstateDerived });
 	setContextLayout({ stateLayout, stateLayoutDerived });
 	setContextApp({ stateApp });
 	Object.assign(stateMeta.betModeMeta, LOUVO_REAL_BET_MODES);
-};
+};"""
 
-export const getContext = () => ({
-	...getContextEventEmitter<EmitterEvent>(),
-	...getContextLayout(),
-	...getContextXstate(),
-	...getContextApp(),
-	stateGame,
-	stateGameDerived,
-	i18nDerived,
-});
+count = content.count(old)
+if count != 1:
+    print(f"ERREUR : trouve {count} fois (attendu 1).")
+else:
+    content = content.replace(old, new, 1)
+    with open(path, "w") as f:
+        f.write(content)
+    print("OK : les 5 vrais modes Louvo sont maintenant injectes au demarrage, betModeMeta ne sera plus jamais vide pour eux.")

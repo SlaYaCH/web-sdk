@@ -85,6 +85,8 @@ export const stateGame = $state({
 	scatterCounter: 0,
 	streakTier: 0,
 	streakLikes: 0,
+	activeBannerReelIndexes: [] as number[],
+	superlikeHeartsLaunched: 0,
 });
 
 // 0,5% - descend tout le bloc en After Dark (cadre plus grand que la base)

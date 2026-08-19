@@ -7,6 +7,9 @@
 
 	const context = getContext();
 
+	type Props = { onclose?: () => void };
+	const props: Props = $props();
+
 	// Mesures reelles sur les cartes (1024x1536) : cadre de texte du bas
 	// x:110-910, y:1100-1360 - description et prix places dedans.
 	const CARD_WIDTH = 170;
@@ -39,8 +42,17 @@
 	const onConfirm = () => {
 		if (!confirming) return;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		const isBuyMode =
+			confirming.modeKey === 'BONUS_SPEED_DATING' || confirming.modeKey === 'BONUS_AFTER_DARK';
 		stateBet.activeBetModeKey = confirming.modeKey;
 		confirming = null;
+		stateModal.modal = null;
+		// L'affichage du menu est pilote par une variable locale de Game.svelte,
+		// pas par stateModal : sans ce rappel, l'ecran de selection se rouvre.
+		props.onclose?.();
+		// Les modes "achat" doivent lancer le tour tout de suite (les modes
+		// "activation" attendent que le joueur appuie sur SPIN lui-meme).
+		if (isBuyMode) context.eventEmitter.broadcast({ type: 'bet' });
 	};
 
 	// Mesures reelles sur les fenetres de confirmation (1161x1355)

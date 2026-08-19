@@ -27,8 +27,8 @@
 
 <SpineProvider
 	key="anticipation"
-	width={SYMBOL_SIZE * 0.56}
-	height={SYMBOL_SIZE * 1.6}
+	width={SYMBOL_SIZE * 1.0}
+	height={SYMBOL_SIZE * 5}
 	x={context.stateGameDerived.boardLayout().x -
 		context.stateGameDerived.boardLayout().width * 0.5 +
 		(props.reel.reelIndex + REEL_PADDING) * SYMBOL_SIZE}

@@ -27,6 +27,10 @@
 		stateBet.isSuperTurbo = next2;
 		if (next2) stateBetDerived.updateIsTurbo(true, { persistent: true });
 	};
+	const onStopOnWin = () => {
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		stateBet.stopOnWin = !stateBet.stopOnWin;
+	};
 
 	const onInfo = () => {
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
@@ -39,14 +43,16 @@
 		stateUi.menuOpen = false;
 	};
 
-	const turboLabel = $derived(stateBet.isTurbo ? 'TURBO : ACTIF' : 'TURBO : COUPÉ');
-	const superTurboLabel = $derived(stateBet.isSuperTurbo ? 'SUPER TURBO : ACTIF' : 'SUPER TURBO : COUPÉ');
+	const turboLabel = $derived(stateBet.isTurbo ? 'TURBO: ON' : 'TURBO: OFF');
+	const superTurboLabel = $derived(stateBet.isSuperTurbo ? 'SUPER TURBO: ON' : 'SUPER TURBO: OFF');
+	const stopOnWinLabel = $derived(stateBet.stopOnWin ? 'STOP ON WIN: ON' : 'STOP ON WIN: OFF');
 
 	const BUTTON_ROWS = $derived([
 		{ label: turboLabel, onpress: onTurbo },
 		{ label: superTurboLabel, onpress: onSuperTurbo },
-		{ label: 'INFO / RÈGLES', onpress: onInfo },
-		{ label: 'FERMER', onpress: onHome },
+		{ label: stopOnWinLabel, onpress: onStopOnWin },
+		{ label: 'INFO / RULES', onpress: onInfo },
+		{ label: 'CLOSE', onpress: onHome },
 	]);
 </script>
 
@@ -65,7 +71,7 @@
 		<Text
 			y={-14}
 			anchor={{ x: 0.5, y: 1 }}
-			text={`MUSIQUE : ${Math.round(stateSound.volumeValueMusic)}%`}
+			text={`MUSIC: ${Math.round(stateSound.volumeValueMusic)}%`}
 			style={{ fontFamily: 'proxima-nova', fontWeight: '600', fontSize: 22, fill: 0xffffff }}
 		/>
 		<Container y={20}>
@@ -82,7 +88,7 @@
 		<Text
 			y={-14}
 			anchor={{ x: 0.5, y: 1 }}
-			text={`SON : ${Math.round(stateSound.volumeValueSoundEffect)}%`}
+			text={`SOUND: ${Math.round(stateSound.volumeValueSoundEffect)}%`}
 			style={{ fontFamily: 'proxima-nova', fontWeight: '600', fontSize: 22, fill: 0xffffff }}
 		/>
 		<Container y={20}>

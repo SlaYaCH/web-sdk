@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Container, Sprite } from 'pixi-svelte';
+	import { getContext } from '../game/context';
 
 	type Props = {
 		likes: number; // 1 a 6
 	};
 	const props: Props = $props();
+	const context = getContext();
 
 	// ============================================================
 	// REGLAGES RAPIDES - si le positionnement n'est toujours pas
@@ -65,9 +67,18 @@
 		for (let i = 0; i < filledCount; i++) {
 			animate(180, 120 + i * 25, (t) => (outerScales[i] = easeOutBack(t)));
 		}
+	});
 
-		for (let i = 0; i < filledCount; i++) {
-			animate(200, 300 + i * 550, (t) => {
+	// Vide le presentoir au rythme REEL des lancers (synchronise via
+	// stateGame.superlikeHeartsLaunched, mis a jour par SuperlikeHeartThrow),
+	// au lieu d'un minuteur fixe decorrele du vrai depart des coeurs.
+	const vanished = new Set<number>();
+	$effect(() => {
+		const launched = context.stateGame.superlikeHeartsLaunched;
+		for (let i = 0; i < Math.min(launched, filledCount); i++) {
+			if (vanished.has(i)) continue;
+			vanished.add(i);
+			animate(200, 0, (t) => {
 				outerAlphas[i] = 1 - t;
 				outerScales[i] = 1 - t * 0.4;
 			});

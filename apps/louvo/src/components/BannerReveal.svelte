@@ -12,7 +12,7 @@
 		duelValues?: [number, number];
 		duelWinner?: number;
 		likes?: number;
-		forceClose?: boolean;
+		closeToken?: number;
 		x?: number;
 		y?: number;
 		durationInMs?: number;
@@ -95,8 +95,13 @@
 		})();
 	});
 
+	// Valeur de reference capturee au montage : tout changement ulterieur
+	// de closeToken (peu importe l'ancienne valeur booleenne ratee en
+	// turbo/super turbo) declenche la fermeture, sans jamais pouvoir etre
+	// rate meme si plusieurs spins s'enchainent tres vite.
+	const initialCloseToken = props.closeToken;
 	$effect(() => {
-		if (props.forceClose) resolveHold();
+		if (props.closeToken !== undefined && props.closeToken !== initialCloseToken) resolveHold();
 	});
 </script>
 

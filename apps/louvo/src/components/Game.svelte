@@ -4,7 +4,7 @@
 	import { EnablePixiExtension } from 'components-pixi';
 	import { EnableHotkey } from 'components-shared';
 	import { MainContainer } from 'components-layout';
-	import { App, Text, REM, Container, Rectangle } from 'pixi-svelte';
+	import { App, Text, REM, Container, Rectangle, Sprite } from 'pixi-svelte';
 	import { stateModal } from 'state-shared';
 
 	import { UiGameName } from 'components-ui-pixi';
@@ -178,7 +178,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
 				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
 			>
-				<LouvoBonusMenu />
+				<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />
 			</Container>
 		{/if}
 		<Win />

@@ -72,7 +72,7 @@
 	});
 </script>
 
-<Container alpha={lineAlpha}>
+<Container alpha={lineAlpha} zIndex={40}>
 	<Graphics
 		draw={(g) => {
 			g.moveTo(points[0].x, points[0].y);
@@ -83,7 +83,7 @@
 		}}
 	/>
 </Container>
-<Container x={midX} y={midY - AMOUNT_Y_OFFSET} alpha={amountAlpha}>
+<Container x={midX} y={midY - AMOUNT_Y_OFFSET} alpha={amountAlpha} zIndex={40}>
 	<Text
 		anchor={0.5}
 		text={bookEventAmountToCurrencyString(props.amount)}

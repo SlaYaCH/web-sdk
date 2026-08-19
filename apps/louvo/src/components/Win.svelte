@@ -20,6 +20,7 @@
 	import PressToContinue from './PressToContinue.svelte';
 	import { SYMBOL_SIZE } from '../game/constants';
 	import { getContext } from '../game/context';
+	import { stateBet } from 'state-shared';
 
 	const context = getContext();
 
@@ -49,16 +50,30 @@
 		{@const duration = winLevelData.presentDuration}
 		<WinCountUpProvider {amount} {duration} oncomplete={() => onCountUpComplete()}>
 			{#snippet children({ countUpAmount, startCountUp, finishCountUp, countUpCompleted })}
-				{#if isBigWin}
-					<CanvasSizeRectangle backgroundColor={0x000000} backgroundAlpha={0.5} />
-				{/if}
+				<CanvasSizeRectangle backgroundColor={0x000000} backgroundAlpha={0.5} />
 
 				<OnMount
 					onmount={async () => {
-						await startCountUp();
-						await waitForTimeout(300);
-						// Reste affiche jusqu'au prochain spin (ou un clic manuel via
-						// PressToContinue) - plus de fermeture automatique ici.
+						if (isBigWin) {
+							// A partir de BIG WIN : compte depuis zero, reste affiche
+							// le temps prevu pour la mise en scene.
+							await startCountUp();
+							await waitForTimeout(300);
+							if (!stateBet.stopOnWin) {
+								await waitForTimeout(duration);
+								oncomplete();
+							}
+						} else {
+							// En dessous de BIG WIN : affichage instantane, pas de
+							// comptage depuis zero, enchainement direct sur le tour
+							// suivant, sans aucune attente.
+							finishCountUp();
+							if (!stateBet.stopOnWin) {
+								oncomplete();
+							}
+						}
+						// Si stopOnWin est actif, reste affiche jusqu'a un clic manuel
+						// (PressToContinue) ou le prochain spin, quel que soit le palier.
 					}}
 				/>
 

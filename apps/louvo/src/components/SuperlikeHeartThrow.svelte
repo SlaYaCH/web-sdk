@@ -3,6 +3,7 @@
 	import { Container, Sprite } from 'pixi-svelte';
 	import { getSymbolX } from '../game/utils';
 	import { getContext } from '../game/context';
+	import { stateBet } from 'state-shared';
 	import { BOARD_SIZES, SYMBOL_HEIGHT, REEL_PADDING } from '../game/constants';
 
 	type Position = { reelIndex: number; rowIndex: number };
@@ -15,14 +16,30 @@
 	const context = getContext();
 
 	const HEART_SIZE = 28; // meme taille que les coeurs du presentoir
-	const BASE_DELAY = 300;
+	const BASE_DELAY = 900; // laisse le temps aux rouleaux de finir de se poser (vitesse normale)
+	const effectiveDelay = () => BASE_DELAY / (stateBet.isSuperTurbo ? 4 : stateBet.isTurbo ? 2 : 1);
+	// Attente robuste : au lieu de deviner un minuteur, on verifie l'etat
+	// REEL de chaque rouleau (comme pour l'anticipation) - garantit que les
+	// coeurs ne partent JAMAIS pendant qu'un rouleau tourne encore.
+	const waitForAllReelsStopped = async () => {
+		while (context.stateGame.board.some((reel) => reel.reelState.motion !== 'stopped')) {
+			await new Promise((r) => setTimeout(r, 50));
+		}
+	};
 
 	const originX = getSymbolX(props.reelIndex);
 	const originY = BOARD_SIZES.height / 2 + 162.7;
 
 	const getRowY = (rowIndex: number) => SYMBOL_HEIGHT * (rowIndex + REEL_PADDING);
 
-	const targets = (props.positions ?? []).map((p) => ({
+	// Securite : exclut toute position ciblee sur la colonne de la banniere
+	// Super Like elle-meme OU sur la colonne d'une AUTRE banniere active en
+	// meme temps (ex: Match Duel sur un autre rouleau du meme spin) - un
+	// coeur ne doit JAMAIS atterrir sur une case occupee par une banniere.
+	const positions = (props.positions ?? []).filter(
+		(p) => p.reelIndex !== props.reelIndex && !context.stateGame.activeBannerReelIndexes.includes(p.reelIndex),
+	);
+	const targets = positions.map((p) => ({
 		x: getSymbolX(p.reelIndex),
 		y: getRowY(p.rowIndex),
 	}));
@@ -65,6 +82,8 @@
 			const start = performance.now();
 
 			context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_multiplier_up', forcePlay: true });
+			// Synchronisation presentoir : le barillet retire son coeur au moment exact du lancer.
+			context.stateGame.superlikeHeartsLaunched = index + 1;
 
 			const step = (now: number) => {
 				const elapsed = now - start;
@@ -82,7 +101,7 @@
 				} else {
 					// Le symbole devient WILD exactement au moment ou le coeur
 					// touche sa case (pas avant, pas apres).
-					const pos = props.positions?.[index];
+					const pos = positions[index];
 					if (pos) {
 						const reelSymbol =
 							context.stateGame.board[pos.reelIndex]?.reelState?.symbols[pos.rowIndex + 1];
@@ -101,9 +120,27 @@
 			requestAnimationFrame(step);
 		});
 
+	// Le book (reveal) contient deja les W sur les cases ciblees : des que le
+	// rouleau d'une case s'arrete, on re-affiche un symbole normal (L4) - la
+	// vraie transformation en WILD se fait uniquement a l'impact du coeur.
+	const maskLandedWilds = () => {
+		for (const pos of positions) {
+			const reel = context.stateGame.board[pos.reelIndex];
+			if (reel?.reelState?.motion !== 'stopped') continue;
+			const reelSymbol = reel.reelState.symbols[pos.rowIndex + 1];
+			if (reelSymbol?.rawSymbol?.name === 'W') {
+				reelSymbol.rawSymbol = { name: 'L4' };
+			}
+		}
+	};
+
 	onMount(() => {
+		const wildWatcher = setInterval(maskLandedWilds, 16);
 		(async () => {
-			await new Promise((r) => setTimeout(r, BASE_DELAY));
+			await waitForAllReelsStopped();
+			clearInterval(wildWatcher);
+			maskLandedWilds();
+			await new Promise((r) => setTimeout(r, effectiveDelay()));
 			for (let i = 0; i < hearts.length; i++) {
 				await flyTo(i);
 			}
@@ -112,7 +149,7 @@
 </script>
 
 {#each hearts as heart (heart.id)}
-	<Container x={heart.x} y={heart.y} alpha={heart.alpha} scale={heart.scale}>
+	<Container x={heart.x} y={heart.y} alpha={heart.alpha} scale={heart.scale} zIndex={40}>
 		<Sprite key="heartBullet" anchor={0.5} width={HEART_SIZE} height={HEART_SIZE} />
 	</Container>
 {/each}
