@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-	import { Container } from 'pixi-svelte';
+	import { Container, Rectangle } from 'pixi-svelte';
 	import { FadeContainer, WinCountUpProvider, ResponsiveBitmapText } from 'components-pixi';
 	import { waitForResolve, waitForTimeout } from 'utils-shared/wait';
 	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
@@ -98,6 +98,13 @@
 								/>
 							</WinAnimation>
 						{:else}
+							<Rectangle
+								anchor={0.5}
+								width={SYMBOL_SIZE * 2.6}
+								height={SYMBOL_SIZE * 0.8}
+								backgroundColor={0x000000}
+								alpha={0.78}
+							/>
 							<ResponsiveBitmapText
 								anchor={0.5}
 								maxWidth={context.stateLayoutDerived.canvasSizes().width /

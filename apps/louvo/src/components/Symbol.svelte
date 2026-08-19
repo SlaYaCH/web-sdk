@@ -54,7 +54,7 @@
 		}}
 	/>
 {/if}
-{#if props.rawSymbol.multiplier}
+{#if (props.rawSymbol.multiplier) > 1}
 	<BitmapText
 		anchor={0.5}
 		x={props.x}

@@ -84,7 +84,6 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 		<MainContainer>
 			<BoardFrame />
-				<WinLinesDisplay />
 				<AfterDarkStreakDisplay
 					tier2={{
 						filled:
@@ -183,6 +182,9 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		{/if}
 		<Win />
 		<SpecialRevealOverlay />
+		<MainContainer zIndex={100}>
+			<WinLinesDisplay />
+		</MainContainer>
 		<DevRevealPanel />
 		<FreeSpinIntro />
 		{#if ['desktop', 'landscape'].includes(context.stateLayoutDerived.layoutType())}

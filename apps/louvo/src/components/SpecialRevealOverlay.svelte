@@ -33,6 +33,7 @@
 		bannerX: number;
 		reelIndex: number;
 		closeToken: number;
+		epoch: number;
 		resolve: () => void;
 	};
 
@@ -61,6 +62,7 @@
 					bannerX: getSymbolX(emitterEvent.reelIndex),
 					reelIndex: emitterEvent.reelIndex,
 					closeToken: 0,
+					epoch: context.stateGame.bannerEpoch,
 					resolve,
 				};
 				activeReveals = [...activeReveals, reveal];
@@ -70,8 +72,20 @@
 			syncActiveBannerReelIndexes();
 		},
 	});
+
+	// bannerEpoch est incremente par le handler reveal a chaque nouveau tour
+	// (free spins compris) : on ferme les bannieres des tours precedents,
+	// celles du tour courant sont epargnees.
+	let lastEpoch = 0;
+	$effect(() => {
+		const epoch = context.stateGame.bannerEpoch;
+		if (epoch === lastEpoch) return;
+		lastEpoch = epoch;
+		activeReveals = activeReveals.map((r) =>
+			r.epoch < epoch - 1 ? { ...r, closeToken: r.closeToken + 1 } : r
+		);
+	});
 </script>
-{#if activeReveals.length > 0}
 	<MainContainer>
 		<BoardContainer>
 			{#each activeReveals as reveal (reveal.id)}
@@ -94,4 +108,3 @@
 			{/each}
 		</BoardContainer>
 	</MainContainer>
-{/if}

@@ -41,6 +41,19 @@ const animateSymbols = async ({ positions }: { positions: Position[] }) => {
 };
 export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContext> = {
 	reveal: async (bookEvent: BookEventOfType<'reveal'>, { bookEvents }: BookEventContext) => {
+		// Attend la fin des lancers de coeurs d'un tour PRECEDENT avant d'enchainer
+		// (garde anti-blocage : jamais la promesse creee pour le tour courant).
+		if (stateGame.superlikeAnimationPromise && stateGame.superlikeAnimationEpoch < stateGame.bannerEpoch) {
+			await stateGame.superlikeAnimationPromise;
+			stateGame.superlikeAnimationPromise = null;
+		}
+		// Chaque nouveau tour (free spins compris) cloture les bannieres du tour precedent.
+		stateGame.bannerEpoch += 1;
+		// Purge les drapeaux d'anticipation restes bloques d'un tour precedent
+		// (l'animation ne se termine pas toujours, le drapeau restait a true).
+		for (const reel of stateGame.board) {
+			if (reel.reelState?.anticipating) reel.reelState.anticipating = false;
+		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
@@ -71,6 +84,11 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
 		stateGame.superlikeHeartsLaunched = 0;
+		console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));
+		stateGame.superlikeAnimationEpoch = stateGame.bannerEpoch;
+		stateGame.superlikeAnimationPromise = new Promise((resolve) => {
+			stateGame.superlikeAnimationsDone = resolve;
+		});
 		// Ne bloque plus la suite de la sequence, meme raison que matchDuelReveal.
 		eventEmitter.broadcast({
 			type: 'specialRevealShow',
@@ -79,10 +97,17 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			multiplier: bookEvent.multiplier,
 			likePositions: bookEvent.likePositions,
 		});
-		stateGame.streakTier = bookEvent.streakTier;
-		stateGame.streakLikes = bookEvent.likes;
+		// Cible du Match Streak : la descente visuelle se fait coeur par coeur
+		// dans SuperlikeHeartThrow, puis se cale sur ces valeurs du Math SDK.
+		stateGame.streakTargetTier = bookEvent.streakTier;
+		stateGame.streakTargetHearts = bookEvent.streakHearts;
 	},
 	winInfo: async (bookEvent: BookEventOfType<'winInfo'>) => {
+		// Attend la fin des lancers de coeurs Super Like avant d'afficher les lignes de gains.
+		if (stateGame.superlikeAnimationPromise) {
+			await stateGame.superlikeAnimationPromise;
+			stateGame.superlikeAnimationPromise = null;
+		}
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_winlevel_small' });
 		if (bookEvent.wins.length > 0) {
 			// Affichee tout de suite (pas apres la surbrillance des symboles),

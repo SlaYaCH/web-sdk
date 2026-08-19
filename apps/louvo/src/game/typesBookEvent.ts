@@ -82,6 +82,7 @@ type BookEventSuperlikeReveal = {
 	multiplier: number;
 	likes: number;
 	streakTier: number;
+	streakHearts: number;
 	likePositions: { reelIndex: number; rowIndex: number }[];
 };
 export type BookEvent =

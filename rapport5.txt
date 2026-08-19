@@ -1,0 +1,1 @@
+===== Handler du type 'bet' (pour le rachat impossible) =====

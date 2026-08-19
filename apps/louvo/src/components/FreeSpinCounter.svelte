@@ -11,30 +11,27 @@
 
 	import { getContext } from '../game/context';
 	import { SYMBOL_SIZE } from '../game/constants';
-	import { anchorToPivot, BitmapText, Container, Sprite, type Sizes } from 'pixi-svelte';
+	import { anchorToPivot, BitmapText, Container, Rectangle, Sprite, type Sizes } from 'pixi-svelte';
 
 	const context = getContext();
 	const PANEL_KEY_DESKTOP = 'Frame_FSCounter.png';
 	const PANEL_RATIO_DESKTOP = 824 / 622;
 	const panelKey = PANEL_KEY_DESKTOP;
-	const panelWidth = $derived(SYMBOL_SIZE * 2);
+	const panelWidth = $derived(SYMBOL_SIZE * 1.53);
 	const panelSizes = $derived({
 		width: panelWidth,
-		height: panelWidth / PANEL_RATIO_DESKTOP,
+		height: SYMBOL_SIZE * 0.61,
 	});
 	const scale = 1;
 	const position = $derived({
-		x:
-			context.stateGameDerived.boardLayout().x -
-			context.stateGameDerived.boardLayout().width * 0.5 -
-			panelSizes.width -
-			SYMBOL_SIZE * 0.7,
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5,
 		y:
-			context.stateGameDerived.boardLayout().y -
-			context.stateGameDerived.boardLayout().height * 0.5,
+			context.stateGameDerived.boardLayout().y +
+			context.stateGameDerived.boardLayout().height * 0.5 +
+			SYMBOL_SIZE * 0.2,
 	});
 
-	const fontSize = SYMBOL_SIZE * 0.275;
+	const fontSize = SYMBOL_SIZE * 0.21;
 
 	let show = $state(false);
 	let current = $state(0);
@@ -60,7 +57,7 @@
 
 <MainContainer>
 	<FadeContainer {show} {...position} {scale}>
-		<Sprite key={panelKey} {...panelSizes} />
+		<Rectangle {...panelSizes} backgroundColor={0x000000} backgroundAlpha={0.78} />
 		<Container
 			x={panelSizes.width * 0.5}
 			y={panelSizes.height * 0.48}
@@ -83,7 +80,7 @@
 				{...counterPosition}
 				anchor={{ x: 0.5, y: 0 }}
 				style={{
-					fontFamily: 'gold', fill: 0xff2d6a,
+					fontFamily: 'gold', fill: 0xffffff,
 					fontSize,
 				}}
 				onresize={(sizes) => (counterSizes = sizes)}

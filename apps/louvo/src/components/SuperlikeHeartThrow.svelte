@@ -22,6 +22,17 @@
 	// REEL de chaque rouleau (comme pour l'anticipation) - garantit que les
 	// coeurs ne partent JAMAIS pendant qu'un rouleau tourne encore.
 	const waitForAllReelsStopped = async () => {
+		// Phase 1 : attend que les rouleaux du TOUR COURANT demarrent (en free
+		// spins, le composant est monte AVANT le depart des rouleaux, encore
+		// "stopped" du tour precedent) - securite 4s si le tour ne demarre pas.
+		const startWait = performance.now();
+		while (
+			context.stateGame.board.every((reel) => reel.reelState.motion === 'stopped') &&
+			performance.now() - startWait < 4000
+		) {
+			await new Promise((r) => setTimeout(r, 50));
+		}
+		// Phase 2 : attend l'arret complet.
 		while (context.stateGame.board.some((reel) => reel.reelState.motion !== 'stopped')) {
 			await new Promise((r) => setTimeout(r, 50));
 		}
@@ -37,7 +48,7 @@
 	// meme temps (ex: Match Duel sur un autre rouleau du meme spin) - un
 	// coeur ne doit JAMAIS atterrir sur une case occupee par une banniere.
 	const positions = (props.positions ?? []).filter(
-		(p) => p.reelIndex !== props.reelIndex && !context.stateGame.activeBannerReelIndexes.includes(p.reelIndex),
+		(p) => p.reelIndex !== props.reelIndex,
 	);
 	const targets = positions.map((p) => ({
 		x: getSymbolX(p.reelIndex),
@@ -84,6 +95,15 @@
 			context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_multiplier_up', forcePlay: true });
 			// Synchronisation presentoir : le barillet retire son coeur au moment exact du lancer.
 			context.stateGame.superlikeHeartsLaunched = index + 1;
+			// After Dark : le presentoir de palier descend d'un coeur par lancer.
+			if (context.stateGame.tier === 'after_dark') {
+				if (context.stateGame.streakTier === 0) context.stateGame.streakTier = 1;
+				context.stateGame.streakLikes += 1;
+				if (context.stateGame.streakLikes >= 6) {
+					context.stateGame.streakTier += 1;
+					context.stateGame.streakLikes = 0;
+				}
+			}
 
 			const step = (now: number) => {
 				const elapsed = now - start;
@@ -126,7 +146,6 @@
 	const maskLandedWilds = () => {
 		for (const pos of positions) {
 			const reel = context.stateGame.board[pos.reelIndex];
-			if (reel?.reelState?.motion !== 'stopped') continue;
 			const reelSymbol = reel.reelState.symbols[pos.rowIndex + 1];
 			if (reelSymbol?.rawSymbol?.name === 'W') {
 				reelSymbol.rawSymbol = { name: 'L4' };
@@ -141,9 +160,21 @@
 			clearInterval(wildWatcher);
 			maskLandedWilds();
 			await new Promise((r) => setTimeout(r, effectiveDelay()));
+			console.log('[SuperLike DEBUG] coeurs affiches:', hearts.length, '- positions cibles:', JSON.stringify(positions));
 			for (let i = 0; i < hearts.length; i++) {
-				await flyTo(i);
+				try {
+					await flyTo(i);
+				} catch (error) {
+					console.error('[SuperLike DEBUG] lancer du coeur', i, 'echoue :', error);
+				}
 			}
+			// Cale l'affichage sur la verite du Math SDK (debordements compris).
+			if (context.stateGame.tier === 'after_dark') {
+				// Le math compte les paliers TERMINES ; l'affichage vit sur le palier EN COURS (+1).
+				context.stateGame.streakTier = context.stateGame.streakTargetTier + 1;
+				context.stateGame.streakLikes = context.stateGame.streakTargetHearts;
+			}
+			context.stateGame.superlikeAnimationsDone?.();
 		})();
 	});
 </script>

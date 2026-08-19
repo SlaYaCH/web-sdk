@@ -10,7 +10,7 @@
 	import { stateUrlDerived } from 'state-shared';
 	import { FadeContainer } from 'components-pixi';
 	import { waitForResolve } from 'utils-shared/wait';
-	import { BitmapText, SpineProvider, SpineSlot, SpineTrack, Sprite } from 'pixi-svelte';
+	import { BitmapText, Container, Rectangle, SpineProvider, SpineSlot, SpineTrack, Sprite } from 'pixi-svelte';
 
 	import { getContext } from '../game/context';
 	import PressToContinue from './PressToContinue.svelte';
@@ -52,40 +52,31 @@
 		/>
 	</MainContainer>
 
-	<FreeSpinAnimation>
-		{#snippet children({ sizes })}
-			<Sprite
-				anchor={{ x: 0.5, y: 1.2 }}
-				width={500 * 2.2}
-				height={156 * 2.2}
-				key="freespins_{stateUrlDerived.lang()}.png"
+
+	<MainContainer>
+		<Container
+			x={context.stateLayoutDerived.mainLayout().width * 0.5}
+			y={context.stateLayoutDerived.mainLayout().height * 0.88}
+		>
+			<Rectangle
+				x={-context.stateLayoutDerived.mainLayout().width * 0.12}
+				y={-context.stateLayoutDerived.mainLayout().height * 0.0425}
+				width={context.stateLayoutDerived.mainLayout().width * 0.24}
+				height={context.stateLayoutDerived.mainLayout().height * 0.085}
+				backgroundColor={0x000000}
+				backgroundAlpha={0.78}
 			/>
-
-			<SpineProvider key="fsIntroNumber" width={sizes.width * 0.3}>
-				<SpineTrack
-					trackIndex={0}
-					{animationName}
-					loop={animationName === 'idle'}
-					listener={{
-						complete: () => (animationName = 'idle'),
-					}}
-				/>
-				<SpineSlot slotName="slot_number">
-					<BitmapText
-						anchor={{ x: 0.5, y: 0.5 }}
-						text={freeSpinsFromEvent}
-						style={{
-							fontFamily: 'gold', fill: 0xff2d6a,
-							fontSize: sizes.width * 0.1,
-							fontWeight: 'bold',
-						}}
-					/>
-				</SpineSlot>
-			</SpineProvider>
-
-			<Sprite anchor={{ x: 0.5, y: -3 }} width={183 * 2.2} height={42 * 2.2} key="freespins.png" />
-		{/snippet}
-	</FreeSpinAnimation>
+			<BitmapText
+				anchor={{ x: 0.5, y: 0.5 }}
+				text={`${freeSpinsFromEvent} FREE SPINS`}
+				style={{
+					fontFamily: 'gold', fill: 0xff2d6a,
+					fontSize: context.stateLayoutDerived.mainLayout().height * 0.055,
+					fontWeight: 'bold',
+				}}
+			/>
+		</Container>
+	</MainContainer>
 
 	<PressToContinue onpress={() => oncomplete()} />
 </FadeContainer>
