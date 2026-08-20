@@ -147,14 +147,18 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
 		stateBetDerived.updateIsTurbo(false, { persistent: true });
 		stateBet.isSuperTurbo = false;
-		stateGame.tier = bookEvent.tier ?? 'speed_dating';
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_scatter_win_v2' });
 		await animateSymbols({ positions: bookEvent.positions });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_superfreespin' });
 		await eventEmitter.broadcastAsync({ type: 'uiHide' });
 		await eventEmitter.broadcastAsync({ type: 'transition' });
+		// L'ecran d'annonce s'affiche D'ABORD ; le changement de decor (grille
+		// After Dark, fond nuit) se fait ensuite SOUS l'annonce, une fois son
+		// fondu d'entree termine - plus aucun apercu de l'ancienne slot.
 		eventEmitter.broadcast({ type: 'freeSpinIntroShow' });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'jng_intro_fs' });
+		await new Promise((r) => setTimeout(r, 450));
+		stateGame.tier = bookEvent.tier ?? 'speed_dating';
 		eventEmitter.broadcast({ type: 'soundMusic', name: freeSpinMusicName() });
 		await eventEmitter.broadcastAsync({
 			type: 'freeSpinIntroUpdate',
@@ -178,6 +182,10 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		eventEmitter.broadcast({ type: 'drawerFold' });
 	},
 	updateFreeSpin: async (bookEvent: BookEventOfType<'updateFreeSpin'>) => {
+		// Retrigger : le total augmente en cours de bonus -> message '+N FREE SPINS'.
+		if (stateUi.freeSpinCounterTotal && bookEvent.total > stateUi.freeSpinCounterTotal) {
+			stateGame.retriggerToShow = bookEvent.total - stateUi.freeSpinCounterTotal;
+		}
 		eventEmitter.broadcast({ type: 'freeSpinCounterShow' });
 		stateUi.freeSpinCounterShow = true;
 		eventEmitter.broadcast({
@@ -189,6 +197,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		stateUi.freeSpinCounterTotal = bookEvent.total;
 	},
 	freeSpinEnd: async (bookEvent: BookEventOfType<'freeSpinEnd'>) => {
+		// Ferme toutes les bannieres restantes (Super Like/MATCH) en sortant du bonus.
+		stateGame.bannerEpoch += 2;
 		const winLevelData = winLevelMap[bookEvent.winLevel as WinLevel];
 		await eventEmitter.broadcastAsync({ type: 'uiHide' });
 		stateGame.gameType = 'basegame';

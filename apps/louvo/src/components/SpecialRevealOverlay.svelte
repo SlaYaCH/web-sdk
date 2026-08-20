@@ -59,7 +59,8 @@
 					duelValues: emitterEvent.duelValues,
 					likePositions: emitterEvent.likePositions,
 					likes: emitterEvent.likePositions?.length ?? 0,
-					bannerX: getSymbolX(emitterEvent.reelIndex),
+					// Correction fine : bannieres des rouleaux 2-5 ~1mm trop a droite (valeur ajustable).
+					bannerX: getSymbolX(emitterEvent.reelIndex) - (emitterEvent.reelIndex > 0 ? 4 : 0),
 					reelIndex: emitterEvent.reelIndex,
 					closeToken: 0,
 					epoch: context.stateGame.bannerEpoch,

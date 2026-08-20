@@ -91,6 +91,8 @@ export const stateGame = $state({
 	streakTargetTier: 0,
 	streakTargetHearts: 0,
 	superlikeAnimationEpoch: 0,
+	tierPassToShow: 0,
+	retriggerToShow: 0,
 	superlikeAnimationPromise: null as Promise<void> | null,
 	superlikeAnimationsDone: null as null | (() => void),
 });

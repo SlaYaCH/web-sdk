@@ -30,6 +30,8 @@ import LouvoIntroScreen from './LouvoIntroScreen.svelte';
 	import Anticipations from './Anticipations.svelte';
 	import Win from './Win.svelte';
 	import SpecialRevealOverlay from './SpecialRevealOverlay.svelte';
+	import AfterDarkTierPass from './AfterDarkTierPass.svelte';
+	import RetriggerToast from './RetriggerToast.svelte';
 import DevRevealPanel from './DevRevealPanel.svelte';
 	import FreeSpinIntro from './FreeSpinIntro.svelte';
 	import FreeSpinCounter from './FreeSpinCounter.svelte';
@@ -182,6 +184,8 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		{/if}
 		<Win />
 		<SpecialRevealOverlay />
+		<AfterDarkTierPass />
+		<RetriggerToast />
 		<MainContainer zIndex={100}>
 			<WinLinesDisplay />
 		</MainContainer>
@@ -276,11 +280,11 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p>When MATCH symbols land in a winning combination, two multiplier values face off in a duel. Either one can win, it's a coin flip, and only the surviving multiplier is applied to the win.</p>
 
 	<h3>SUPER LIKE</h3>
-	<p>The SUPER LIKE symbol reveals a multiplier and sends out between 1 and 6 Wilds to random empty positions on the grid.</p>
+	<p>The SUPER LIKE banner reveals a multiplier and throws between 1 and 6 hearts onto the grid. Each heart transforms the symbol it lands on into a WILD.</p>
 
 	<h3>SPEED DATING &amp; AFTER DARK</h3>
-	<p>Land 3 DATE scatters to unlock SPEED DATING: 10 free spins under a brighter sky. Land 4 DATE scatters to unlock AFTER DARK: 10 free spins once the sun goes down, with an escalating Match Streak that can guarantee bigger and bigger MATCH wins the longer it runs.</p>
-	<p>During free spins, landing 2 extra scatters awards 2 more spins; landing 3 extra scatters awards 4 more spins.</p>
+	<p>Land 3 DATE scatters to unlock SPEED DATING: 10 free spins under a brighter sky. During SPEED DATING, landing 3 extra DATE scatters awards 5 more free spins.</p>
+	<p>Land 4 DATE scatters to unlock AFTER DARK: 10 free spins once the sun goes down. DATE symbols do not appear during AFTER DARK. Instead, the Match Streak takes over: every Super Like heart also empties the tier display beside the grid. Each emptied tier awards a special spin with guaranteed MATCH symbols (2, then 3, then 4, then 5) plus 3 extra free spins, and the tier's cards gray out once completed.</p>
 
 	<h2>PAYTABLE</h2>
 	<p>Payouts shown are multiples of your total bet.</p>
@@ -355,9 +359,9 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<h2>SPECIAL SYMBOLS</h2>
 	<p><strong>WILD</strong> substitutes for all symbols on the paytable. Wilds only appear on the grid through the SUPER LIKE feature.</p>
 	<p><strong>MATCH</strong> triggers a duel between two multiplier values, deciding the multiplier applied to the win.</p>
-	<p><strong>SUPER LIKE</strong> reveals a multiplier and sends out extra Wilds to the grid.</p>
+	<p><strong>SUPER LIKE</strong> reveals a multiplier and throws hearts that turn symbols into Wilds.</p>
 	<p>Possible multiplier values for MATCH and SUPER LIKE are: 2x, 3x, 4x, 5x, 6x, 7x, 8x, 9x, 10x, 15x, 20x, 25x, 50x, 75x, 100x, 200x.</p>
-	<p><strong>DATE</strong> is the scatter symbol. Land 3 or 4 to unlock SPEED DATING or AFTER DARK.</p>
+	<p><strong>DATE</strong> is the scatter symbol. Land 3 or 4 to unlock SPEED DATING or AFTER DARK. DATE appears in the base game and SPEED DATING only.</p>
 
 	<h2>WAYS TO WIN</h2>
 	<p>You win when matching symbols land on adjacent reels, starting from the leftmost reel, along one of 19 fixed paylines. Only the highest win per line is paid.</p>
@@ -365,8 +369,8 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 	<h2>BUY BONUS</h2>
 	<p>Louvo lets you jump straight into the action from the BONUS button.</p>
-	<p><strong>DATE X5</strong> — 3x your bet — increases the chance of triggering a bonus round.</p>
-	<p><strong>MATCH 2+</strong> — 60x your bet — guarantees MATCH symbols on the next spin.</p>
+	<p><strong>DATE X5</strong> — 3x your bet — multiplies your chance of triggering a bonus round by 5.</p>
+	<p><strong>MATCH 2+</strong> — 60x your bet — guarantees at least 2 MATCH symbols on the next spin.</p>
 	<p><strong>SUPER LIKE</strong> — 60x your bet — guarantees a Super Like on the next spin.</p>
 	<p><strong>SPEED DATING</strong> — 80x your bet — instantly unlocks 10 free spins in the daytime setting.</p>
 	<p><strong>AFTER DARK</strong> — 150x your bet — instantly unlocks 10 free spins in the nighttime setting.</p>

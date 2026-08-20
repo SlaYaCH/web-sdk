@@ -100,6 +100,8 @@
 				if (context.stateGame.streakTier === 0) context.stateGame.streakTier = 1;
 				context.stateGame.streakLikes += 1;
 				if (context.stateGame.streakLikes >= 6) {
+					// Palier vide : affiche les cartes (DUEL du palier + '+3 free spins').
+					context.stateGame.tierPassToShow = context.stateGame.streakTier;
 					context.stateGame.streakTier += 1;
 					context.stateGame.streakLikes = 0;
 				}

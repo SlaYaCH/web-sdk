@@ -14,6 +14,10 @@
 	const props: Props = $props();
 	const context = getContext();
 
+	// Correction fine du cadre d'anticipation (il penche a droite sur la grille).
+	// Ajustez ce coefficient : plus grand = plus a gauche.
+	const ANTICIPATION_X_CORRECTION = SYMBOL_SIZE * 0.25;
+
 	type AnimationName = 'anticipation_intro' | 'anticipation_loop' | 'anticipation_out';
 
 	let animationName = $state<AnimationName>('anticipation_intro');
@@ -31,7 +35,8 @@
 	height={SYMBOL_SIZE * 5}
 	x={context.stateGameDerived.boardLayout().x -
 		context.stateGameDerived.boardLayout().width * 0.5 +
-		(props.reel.reelIndex + REEL_PADDING) * SYMBOL_SIZE}
+		(props.reel.reelIndex + REEL_PADDING) * SYMBOL_SIZE -
+		ANTICIPATION_X_CORRECTION}
 	y={context.stateGameDerived.boardLayout().y - SYMBOL_SIZE * 0.06}
 >
 	<SpineTrack

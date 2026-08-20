@@ -129,6 +129,10 @@
 					</Container>
 				</MainContainer>
 
+				{#if countUpCompleted}
+					<!-- La somme a fini de monter : on coupe la boucle de pieces sans attendre le clic. -->
+					<OnMount onmount={() => context.eventEmitter.broadcast({ type: 'soundStop', name: 'sfx_bigwin_coinloop' })} />
+				{/if}
 				<WinCoins emit={!countUpCompleted} levelAlias={winLevelData?.alias} />
 
 				<PressToContinue onpress={() => (countUpCompleted ? oncomplete() : finishCountUp())} />

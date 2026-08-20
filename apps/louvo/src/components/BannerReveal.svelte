@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { stateBet } from 'state-shared';
 	import { Container, Sprite, BitmapText } from 'pixi-svelte';
 	import MatchDuelClash from './MatchDuelClash.svelte';
 	import SuperlikeBarilletDisplay from './SuperlikeBarilletDisplay.svelte';
@@ -75,7 +76,10 @@
 
 	onMount(() => {
 		(async () => {
-			await animateTo(1, 1, durationInMs);
+			// En turbo/super turbo : apparition/disparition instantanees, sans fondu
+			// (les colonnes de wild se voyaient a travers la transparence).
+			const instant = stateBet.isTurbo || stateBet.isSuperTurbo;
+			await animateTo(1, 1, instant ? 0 : durationInMs);
 
 			if (holdMs > 0) {
 				if (holdMs === Infinity) {
@@ -88,7 +92,7 @@
 						new Promise<void>((r) => (resolveHold = r)),
 					]);
 				}
-				await animateTo(1, 0, Math.min(durationInMs, 250));
+				await animateTo(1, 0, stateBet.isTurbo || stateBet.isSuperTurbo ? 0 : Math.min(durationInMs, 250));
 			}
 
 			props.oncomplete?.();

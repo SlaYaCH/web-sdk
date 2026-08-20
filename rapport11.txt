@@ -1,0 +1,387 @@
+===== Qui rend la modale gameRules =====
+apps/louvo/src/components/LouvoSettingsMenu.svelte:37:		stateModal.modal = { name: 'gameRules' };
+apps/louvo/src/components/Game.svelte:207:	{#snippet gameRules()}
+
+===== Contenu de apps/louvo/src/components/Game.svelte =====
+     1	<script lang="ts">
+     2		import { onMount } from 'svelte';
+     3	
+     4		import { EnablePixiExtension } from 'components-pixi';
+     5		import { EnableHotkey } from 'components-shared';
+     6		import { MainContainer } from 'components-layout';
+     7		import { App, Text, REM, Container, Rectangle, Sprite } from 'pixi-svelte';
+     8		import { stateModal } from 'state-shared';
+     9	
+    10		import { UiGameName } from 'components-ui-pixi';
+    11		import { stateUi } from 'state-shared';
+    12		import { BLACK } from 'constants-shared/colors';
+    13		import LouvoBottomBar from './LouvoBottomBar.svelte';
+    14		import AfterDarkStreakDisplay from './AfterDarkStreakDisplay.svelte';
+    15		import WinLinesDisplay from './WinLinesDisplay.svelte';
+    16		import LouvoSettingsMenu from './LouvoSettingsMenu.svelte';
+    17		import LouvoBonusMenu from './LouvoBonusMenu.svelte';
+    18		import { GameVersion, Modals } from 'components-ui-html';
+    19	
+    20		import { getContext } from '../game/context';
+    21		import EnableSound from './EnableSound.svelte';
+    22		import EnableGameActor from './EnableGameActor.svelte';
+    23		import ResumeBet from './ResumeBet.svelte';
+    24		import Sound from './Sound.svelte';
+    25		import Background from './Background.svelte';
+    26		import LoadingScreen from './LoadingScreen.svelte';
+    27	import LouvoIntroScreen from './LouvoIntroScreen.svelte';
+    28		import BoardFrame from './BoardFrame.svelte';
+    29		import Board from './Board.svelte';
+    30		import Anticipations from './Anticipations.svelte';
+    31		import Win from './Win.svelte';
+    32		import SpecialRevealOverlay from './SpecialRevealOverlay.svelte';
+    33		import AfterDarkTierPass from './AfterDarkTierPass.svelte';
+    34		import RetriggerToast from './RetriggerToast.svelte';
+    35	import DevRevealPanel from './DevRevealPanel.svelte';
+    36		import FreeSpinIntro from './FreeSpinIntro.svelte';
+    37		import FreeSpinCounter from './FreeSpinCounter.svelte';
+    38		import FreeSpinOutro from './FreeSpinOutro.svelte';
+    39		import Transition from './Transition.svelte';
+    40	
+    41		const context = getContext();
+    42	
+    43		onMount(() => (context.stateLayout.showLoadingScreen = true));
+    44	
+    45		let bonusMenuOpen = $state(false);
+    46		let showIntroScreen = $state(false);
+    47	
+    48		context.eventEmitter.subscribeOnMount({
+    49			buyBonusConfirm: () => {
+    50				stateModal.modal = { name: 'buyBonusConfirm' };
+    51			},
+    52			bonusMenuShow: () => (bonusMenuOpen = true),
+    53		});
+    54	</script>
+    55	
+    56	<App>
+    57		<EnableSound />
+    58		<EnableHotkey />
+    59		<EnableGameActor />
+    60		<EnablePixiExtension />
+    61	
+    62		<Background />
+    63	
+    64		{#if context.stateLayout.showLoadingScreen}
+    65			<LoadingScreen
+    66				onloaded={() => {
+    67					context.stateLayout.showLoadingScreen = false;
+    68					showIntroScreen = true;
+    69				}}
+    70			/>
+    71		{:else if showIntroScreen}
+    72			<LouvoIntroScreen onpress={() => (showIntroScreen = false)} />
+    73		{:else}
+    74			<ResumeBet />
+    75			<!--
+    76				The reason why <Sound /> is rendered after clicking the loading screen:
+    77				"Autoplay with sound is allowed if: The user has interacted with the domain (click, tap, etc.)."
+    78				Ref: https://developer.chrome.com/blog/autoplay
+    79			-->
+    80			<Sound />
+    81	
+    82			<MainContainer>
+    83				<Board />
+    84				<Anticipations />
+    85			</MainContainer>
+    86	
+    87			<MainContainer>
+    88				<BoardFrame />
+    89					<AfterDarkStreakDisplay
+    90						tier2={{
+    91							filled:
+    92								context.stateGame.streakTier === 1
+    93									? 6 - context.stateGame.streakLikes
+    94									: context.stateGame.streakTier >= 2
+    95										? 0
+    96										: 6,
+    97							achieved: context.stateGame.streakTier >= 2,
+    98						}}
+    99						tier3={{
+   100							filled:
+   101								context.stateGame.streakTier === 2
+   102									? 6 - context.stateGame.streakLikes
+   103									: context.stateGame.streakTier >= 3
+   104										? 0
+   105										: 6,
+   106							achieved: context.stateGame.streakTier >= 3,
+   107						}}
+   108						tier4={{
+   109							filled:
+   110								context.stateGame.streakTier === 3
+   111									? 6 - context.stateGame.streakLikes
+   112									: context.stateGame.streakTier >= 4
+   113										? 0
+   114										: 6,
+   115							achieved: context.stateGame.streakTier >= 4,
+   116						}}
+   117						tier5x={{
+   118							filled:
+   119								context.stateGame.streakTier === 4
+   120									? 6 - context.stateGame.streakLikes
+   121									: context.stateGame.streakTier > 4
+   122										? 0
+   123										: 6,
+   124							achieved: context.stateGame.streakTier > 4,
+   125						}}
+   126					/>
+   127			</MainContainer>
+   128	
+   129			<Container x={20}>
+   130				<UiGameName name="LINES GAME" />
+   131			</Container>
+   132			<Container x={context.stateLayoutDerived.canvasSizes().width - 20}>
+   133				<Sprite key="louvoLogo" anchor={{ x: 1, y: 0 }} width={100} height={72.8} />
+   134			</Container>
+   135			<MainContainer standard alignVertical="bottom">
+   136				<Container
+   137					x={context.stateLayoutDerived.mainLayoutStandard().width * 0.5}
+   138					y={context.stateLayoutDerived.mainLayoutStandard().height - 10}
+   139				>
+   140					<LouvoBottomBar />
+   141				</Container>
+   142			</MainContainer>
+   143	
+   144			{#if stateUi.menuOpen}
+   145				<Rectangle
+   146					eventMode="static"
+   147					cursor="pointer"
+   148					alpha={0.5}
+   149					anchor={0.5}
+   150					backgroundColor={BLACK}
+   151					width={context.stateLayoutDerived.canvasSizes().width}
+   152					height={context.stateLayoutDerived.canvasSizes().height}
+   153					x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+   154					y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+   155					onpointerup={() => (stateUi.menuOpen = false)}
+   156				/>
+   157				<Container
+   158					x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+   159					y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+   160				>
+   161					<LouvoSettingsMenu />
+   162				</Container>
+   163			{/if}
+   164	
+   165			{#if bonusMenuOpen}
+   166				<Rectangle
+   167					eventMode="static"
+   168					cursor="pointer"
+   169					alpha={0.5}
+   170					anchor={0.5}
+   171					backgroundColor={BLACK}
+   172					width={context.stateLayoutDerived.canvasSizes().width}
+   173					height={context.stateLayoutDerived.canvasSizes().height}
+   174					x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+   175					y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+   176					onpointerup={() => (bonusMenuOpen = false)}
+   177				/>
+   178				<Container
+   179					x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+   180					y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+   181				>
+   182					<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />
+   183				</Container>
+   184			{/if}
+   185			<Win />
+   186			<SpecialRevealOverlay />
+   187			<AfterDarkTierPass />
+   188			<RetriggerToast />
+   189			<MainContainer zIndex={100}>
+   190				<WinLinesDisplay />
+   191			</MainContainer>
+   192			<DevRevealPanel />
+   193			<FreeSpinIntro />
+   194			{#if ['desktop', 'landscape'].includes(context.stateLayoutDerived.layoutType())}
+   195				<FreeSpinCounter />
+   196			{/if}
+   197			<FreeSpinOutro />
+   198			<Transition />
+   199	
+   200		{/if}
+   201	</App>
+   202	
+   203	<Modals>
+   204		{#snippet version()}
+   205			<GameVersion version="0.0.0" />
+   206		{/snippet}
+   207		{#snippet gameRules()}
+   208			{@html `<style>
+   209		.louvo-rules {
+   210			color: #ffffff;
+   211			line-height: 1.5;
+   212			max-height: 80vh;
+   213			overflow-y: auto;
+   214			padding-right: 12px;
+   215			box-sizing: border-box;
+   216		}
+   217		.louvo-rules h2 { color: #ff2d6a; margin-top: 24px; }
+   218		.louvo-rules h3 { color: #ff8fb3; margin-top: 16px; }
+   219		.louvo-paytable-grid {
+   220			display: grid;
+   221			grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+   222			gap: 12px;
+   223			margin: 12px 0;
+   224		}
+   225		.louvo-paytable-item {
+   226			text-align: center;
+   227			font-size: 12px;
+   228		}
+   229		.louvo-paytable-item img {
+   230			width: 56px;
+   231			height: 56px;
+   232			object-fit: contain;
+   233			border-radius: 6px;
+   234			display: block;
+   235			margin: 0 auto 4px auto;
+   236		}
+   237		.louvo-paytable-item span {
+   238			display: block;
+   239		}
+   240		.ln-wrap {
+   241			display: grid;
+   242			grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+   243			gap: 10px;
+   244			margin: 12px 0;
+   245		}
+   246		.ln-item {
+   247			text-align: center;
+   248		}
+   249		.ln-label {
+   250			font-size: 11px;
+   251			color: #ff8fb3;
+   252			margin-bottom: 2px;
+   253		}
+   254		.ln-grid {
+   255			display: grid;
+   256			grid-template-columns: repeat(5, 8px);
+   257			grid-template-rows: repeat(5, 8px);
+   258			gap: 1px;
+   259			background: #000000;
+   260			padding: 2px;
+   261			margin: 0 auto;
+   262			width: fit-content;
+   263		}
+   264		.ln-cell {
+   265			width: 8px;
+   266			height: 8px;
+   267			background: #2a1018;
+   268		}
+   269		.ln-cell.active {
+   270			background: #ff2d6a;
+   271		}
+   272	</style>
+   273	<div class="louvo-rules">
+   274		<h2>ABOUT THE GAME</h2>
+   275		<p>Welcome to Louvo! Swipe into a 5-reel, 5-row grid packed with 19 paylines, and see who really matches. The maximum win of 15,000x your bet can be hit in any game mode.</p>
+   276	
+   277		<h2>FEATURES</h2>
+   278	
+   279		<h3>THE MATCH DUEL</h3>
+   280		<p>When MATCH symbols land in a winning combination, two multiplier values face off in a duel. Either one can win, it's a coin flip, and only the surviving multiplier is applied to the win.</p>
+   281	
+   282		<h3>SUPER LIKE</h3>
+   283		<p>The SUPER LIKE symbol reveals a multiplier and sends out between 1 and 6 Wilds to random empty positions on the grid.</p>
+   284	
+   285		<h3>SPEED DATING &amp; AFTER DARK</h3>
+   286		<p>Land 3 DATE scatters to unlock SPEED DATING: 10 free spins under a brighter sky. Land 4 DATE scatters to unlock AFTER DARK: 10 free spins once the sun goes down, with an escalating Match Streak that can guarantee bigger and bigger MATCH wins the longer it runs.</p>
+   287		<p>During free spins, landing 2 extra scatters awards 2 more spins; landing 3 extra scatters awards 4 more spins.</p>
+   288	
+   289		<h2>PAYTABLE</h2>
+   290		<p>Payouts shown are multiples of your total bet.</p>
+   291		<div class="louvo-paytable-grid">
+   292			<div class="louvo-paytable-item">
+   293				<img src="/assets/sprites/portraits/h1_le_r.png" alt="Le R" />
+   294				<span>5&nbsp;&nbsp;20.00</span>
+   295				<span>4&nbsp;&nbsp;10.00</span>
+   296				<span>3&nbsp;&nbsp;4.00</span>
+   297			</div>
+   298			<div class="louvo-paytable-item">
+   299				<img src="/assets/sprites/portraits/h2_inso.png" alt="Inso" />
+   300				<span>5&nbsp;&nbsp;16.00</span>
+   301				<span>4&nbsp;&nbsp;8.00</span>
+   302				<span>3&nbsp;&nbsp;2.00</span>
+   303			</div>
+   304			<div class="louvo-paytable-item">
+   305				<img src="/assets/sprites/portraits/h3_shanna.png" alt="Shanna" />
+   306				<span>5&nbsp;&nbsp;12.00</span>
+   307				<span>4&nbsp;&nbsp;6.00</span>
+   308				<span>3&nbsp;&nbsp;1.50</span>
+   309			</div>
+   310			<div class="louvo-paytable-item">
+   311				<img src="/assets/sprites/portraits/h4_manu.png" alt="Manu" />
+   312				<span>5&nbsp;&nbsp;8.00</span>
+   313				<span>4&nbsp;&nbsp;4.00</span>
+   314				<span>3&nbsp;&nbsp;1.00</span>
+   315			</div>
+   316			<div class="louvo-paytable-item">
+   317				<img src="/assets/sprites/portraits/h5_indigo.png" alt="Indigo" />
+   318				<span>5&nbsp;&nbsp;6.00</span>
+   319				<span>4&nbsp;&nbsp;3.00</span>
+   320				<span>3&nbsp;&nbsp;0.70</span>
+   321			</div>
+   322			<div class="louvo-paytable-item">
+   323				<img src="/assets/sprites/portraits/h6_coca_cherry.png" alt="Coca Cherry" />
+   324				<span>5&nbsp;&nbsp;4.00</span>
+   325				<span>4&nbsp;&nbsp;2.00</span>
+   326				<span>3&nbsp;&nbsp;0.50</span>
+   327			</div>
+   328			<div class="louvo-paytable-item">
+   329				<img src="/assets/sprites/basic-symbols/l1_verifie.png" alt="Verified" />
+   330				<span>5&nbsp;&nbsp;2.00</span>
+   331				<span>4&nbsp;&nbsp;1.00</span>
+   332				<span>3&nbsp;&nbsp;0.20</span>
+   333			</div>
+   334			<div class="louvo-paytable-item">
+   335				<img src="/assets/sprites/basic-symbols/l2_message.png" alt="Message" />
+   336				<span>5&nbsp;&nbsp;2.00</span>
+   337				<span>4&nbsp;&nbsp;1.00</span>
+   338				<span>3&nbsp;&nbsp;0.20</span>
+   339			</div>
+   340			<div class="louvo-paytable-item">
+   341				<img src="/assets/sprites/basic-symbols/l3_flamme.png" alt="Flame" />
+   342				<span>5&nbsp;&nbsp;2.00</span>
+   343				<span>4&nbsp;&nbsp;1.00</span>
+   344				<span>3&nbsp;&nbsp;0.20</span>
+   345			</div>
+   346			<div class="louvo-paytable-item">
+   347				<img src="/assets/sprites/basic-symbols/l4_coeur.png" alt="Heart" />
+   348				<span>5&nbsp;&nbsp;2.00</span>
+   349				<span>4&nbsp;&nbsp;1.00</span>
+   350				<span>3&nbsp;&nbsp;0.20</span>
+   351			</div>
+   352			<div class="louvo-paytable-item">
+   353				<img src="/assets/sprites/special/wild.png" alt="Wild" />
+   354				<span>5&nbsp;&nbsp;20.00</span>
+   355			</div>
+   356		</div>
+   357		<p>The RTP for this game is 96.5%.</p>
+   358	
+   359		<h2>SPECIAL SYMBOLS</h2>
+   360		<p><strong>WILD</strong> substitutes for all symbols on the paytable. Wilds only appear on the grid through the SUPER LIKE feature.</p>
+   361		<p><strong>MATCH</strong> triggers a duel between two multiplier values, deciding the multiplier applied to the win.</p>
+   362		<p><strong>SUPER LIKE</strong> reveals a multiplier and sends out extra Wilds to the grid.</p>
+   363		<p>Possible multiplier values for MATCH and SUPER LIKE are: 2x, 3x, 4x, 5x, 6x, 7x, 8x, 9x, 10x, 15x, 20x, 25x, 50x, 75x, 100x, 200x.</p>
+   364		<p><strong>DATE</strong> is the scatter symbol. Land 3 or 4 to unlock SPEED DATING or AFTER DARK.</p>
+   365	
+   366		<h2>WAYS TO WIN</h2>
+   367		<p>You win when matching symbols land on adjacent reels, starting from the leftmost reel, along one of 19 fixed paylines. Only the highest win per line is paid.</p>
+   368		<div class="ln-wrap"><div class="ln-item"><div class="ln-label">1</div><div class="ln-grid"><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">2</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">3</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">4</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">5</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div><div class="ln-cell active"></div></div></div><div class="ln-item"><div class="ln-label">6</div><div class="ln-grid"><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">7</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">8</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">9</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">10</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">11</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">12</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">13</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div></div></div><div class="ln-item"><div class="ln-label">14</div><div class="ln-grid"><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div></div></div><div class="ln-item"><div class="ln-label">15</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">16</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">17</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">18</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div><div class="ln-item"><div class="ln-label">19</div><div class="ln-grid"><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell active"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div><div class="ln-cell"></div></div></div></div>
+   369	
+   370		<h2>BUY BONUS</h2>
+   371		<p>Louvo lets you jump straight into the action from the BONUS button.</p>
+   372		<p><strong>DATE X5</strong> — 3x your bet — increases the chance of triggering a bonus round.</p>
+   373		<p><strong>MATCH 2+</strong> — 60x your bet — guarantees MATCH symbols on the next spin.</p>
+   374		<p><strong>SUPER LIKE</strong> — 60x your bet — guarantees a Super Like on the next spin.</p>
+   375		<p><strong>SPEED DATING</strong> — 80x your bet — instantly unlocks 10 free spins in the daytime setting.</p>
+   376		<p><strong>AFTER DARK</strong> — 150x your bet — instantly unlocks 10 free spins in the nighttime setting.</p>
+   377	
+   378		<h2>BET</h2>
+   379		<p>Bet levels range from 0.10 to 2000 in your selected currency. Bonus buys and other special feature purchases can cost more than the maximum base bet.</p>
+   380	</div>`}
+   381		{/snippet}
+   382	</Modals>
