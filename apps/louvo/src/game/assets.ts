@@ -175,6 +175,10 @@ export default {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/screens/after_dark_announce.png', import.meta.url).href,
 	},
+	maxwinScreen: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/maxwin.png', import.meta.url).href,
+	},
 	bonus4ScatterScreen: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/screens/bonus_4_scatter_screen.png', import.meta.url).href,

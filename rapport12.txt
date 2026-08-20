@@ -1,0 +1,138 @@
+===== 1. Source du gain cumule (setTotalWin) =====
+142-		}
+143-	},
+144:	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {
+145-		stateBet.winBookEventAmount = bookEvent.amount;
+146-	},
+147-	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
+148-		stateBetDerived.updateIsTurbo(false, { persistent: true });
+149-		stateBet.isSuperTurbo = false;
+150-		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_scatter_win_v2' });
+151-		await animateSymbols({ positions: bookEvent.positions });
+152-		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_superfreespin' });
+153-		await eventEmitter.broadcastAsync({ type: 'uiHide' });
+154-		await eventEmitter.broadcastAsync({ type: 'transition' });
+--
+222-		eventEmitter.broadcast({ type: 'drawerButtonHide' });
+223-	},
+224:	setWin: async (bookEvent: BookEventOfType<'setWin'>) => {
+225-		const winLevelData = winLevelMap[bookEvent.winLevel as WinLevel];
+226-		eventEmitter.broadcast({ type: 'winShow' });
+227-		winLevelSoundsPlay({ winLevelData });
+228-		await eventEmitter.broadcastAsync({
+229-			type: 'winUpdate',
+230-			amount: bookEvent.amount,
+231-			winLevelData,
+232-		});
+233-		winLevelSoundsStop();
+234-		eventEmitter.broadcast({ type: 'winHide' });
+--
+246-		const lastFreeSpinTriggerEvent = findLastBookEvent('freeSpinTrigger' as const);
+247-		const lastUpdateFreeSpinEvent = findLastBookEvent('updateFreeSpin' as const);
+248:		const lastSetTotalWinEvent = findLastBookEvent('setTotalWin' as const);
+249-		const lastUpdateGlobalMultEvent = findLastBookEvent('updateGlobalMult' as const);
+250-		if (lastFreeSpinTriggerEvent) await playBookEvent(lastFreeSpinTriggerEvent, { bookEvents });
+251-		if (lastUpdateFreeSpinEvent) playBookEvent(lastUpdateFreeSpinEvent, { bookEvents });
+252-		if (lastSetTotalWinEvent) playBookEvent(lastSetTotalWinEvent, { bookEvents });
+253-		if (lastUpdateGlobalMultEvent) playBookEvent(lastUpdateGlobalMultEvent, { bookEvents });
+254-	},
+255-};
+
+===== 2. Comment Win.svelte formate le montant =====
+7:		| { type: 'winUpdate'; amount: number; winLevelData: WinLevelData };
+14:	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
+28:	let amount = $state(0);
+40:			amount = emitterEvent.amount;
+51:		<WinCountUpProvider {amount} {duration} oncomplete={() => onCountUpComplete()}>
+
+===== 3. FreeSpinCounter actuel (pour y accoler le compteur de gains) =====
+     1	<script lang="ts" module>
+     2		export type EmitterEventFreeSpinCounter =
+     3			| { type: 'freeSpinCounterShow' }
+     4			| { type: 'freeSpinCounterHide' }
+     5			| { type: 'freeSpinCounterUpdate'; current?: number; total?: number };
+     6	</script>
+     7	
+     8	<script lang="ts">
+     9		import { MainContainer } from 'components-layout';
+    10		import { FadeContainer } from 'components-pixi';
+    11	
+    12		import { getContext } from '../game/context';
+    13		import { SYMBOL_SIZE } from '../game/constants';
+    14		import { anchorToPivot, BitmapText, Container, Rectangle, Sprite, type Sizes } from 'pixi-svelte';
+    15	
+    16		const context = getContext();
+    17		const PANEL_KEY_DESKTOP = 'Frame_FSCounter.png';
+    18		const PANEL_RATIO_DESKTOP = 824 / 622;
+    19		const panelKey = PANEL_KEY_DESKTOP;
+    20		const panelWidth = $derived(SYMBOL_SIZE * 1.53);
+    21		const panelSizes = $derived({
+    22			width: panelWidth,
+    23			height: SYMBOL_SIZE * 0.61,
+    24		});
+    25		const scale = 1;
+    26		const position = $derived({
+    27			x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5,
+    28			y:
+    29				context.stateGameDerived.boardLayout().y +
+    30				context.stateGameDerived.boardLayout().height * 0.5 +
+    31				SYMBOL_SIZE * 0.2,
+    32		});
+    33	
+    34		const fontSize = SYMBOL_SIZE * 0.21;
+    35	
+    36		let show = $state(false);
+    37		let current = $state(0);
+    38		let total = $state(0);
+    39		let titleSizes: Sizes = $state({ width: 0, height: 0 });
+    40		let counterSizes: Sizes = $state({ width: 0, height: 0 });
+    41	
+    42		const textContainerSizes = $derived({
+    43			width: titleSizes.width,
+    44			height: titleSizes.height + counterSizes.height,
+    45		});
+    46		const counterPosition = $derived({ x: titleSizes.width / 2, y: titleSizes.height });
+    47	
+    48		context.eventEmitter.subscribeOnMount({
+    49			freeSpinCounterShow: () => (show = true),
+    50			freeSpinCounterHide: () => (show = false),
+    51			freeSpinCounterUpdate: (emitterEvent) => {
+    52				if (emitterEvent.current !== undefined) current = emitterEvent.current;
+    53				if (emitterEvent.total !== undefined) total = emitterEvent.total;
+    54			},
+    55		});
+    56	</script>
+    57	
+    58	<MainContainer>
+    59		<FadeContainer {show} {...position} {scale}>
+    60			<Rectangle {...panelSizes} backgroundColor={0x000000} backgroundAlpha={0.78} />
+    61			<Container
+    62				x={panelSizes.width * 0.5}
+    63				y={panelSizes.height * 0.48}
+    64				pivot={anchorToPivot({
+    65					sizes: textContainerSizes,
+    66					anchor: { x: 0.5, y: 0.5 },
+    67				})}
+    68			>
+    69				<BitmapText
+    70					text={'FREE SPIN'}
+    71					style={{
+    72						fontFamily: 'gold', fill: 0xff2d6a,
+    73						fontSize,
+    74						wordWrap: false,
+    75					}}
+    76					onresize={(sizes) => (titleSizes = sizes)}
+    77				/>
+    78				<BitmapText
+    79					text={`${current} OF ${total}`}
+    80					{...counterPosition}
+    81					anchor={{ x: 0.5, y: 0 }}
+    82					style={{
+    83						fontFamily: 'gold', fill: 0xffffff,
+    84						fontSize,
+    85					}}
+    86					onresize={(sizes) => (counterSizes = sizes)}
+    87				/>
+    88			</Container>
+    89		</FadeContainer>
+    90	</MainContainer>

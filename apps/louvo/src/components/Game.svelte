@@ -32,6 +32,7 @@ import LouvoIntroScreen from './LouvoIntroScreen.svelte';
 	import SpecialRevealOverlay from './SpecialRevealOverlay.svelte';
 	import AfterDarkTierPass from './AfterDarkTierPass.svelte';
 	import RetriggerToast from './RetriggerToast.svelte';
+	import BonusWinCounter from './BonusWinCounter.svelte';
 import DevRevealPanel from './DevRevealPanel.svelte';
 	import FreeSpinIntro from './FreeSpinIntro.svelte';
 	import FreeSpinCounter from './FreeSpinCounter.svelte';
@@ -127,7 +128,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		</MainContainer>
 
 		<Container x={20}>
-			<UiGameName name="LINES GAME" />
+			<UiGameName name="LOUVO" />
 		</Container>
 		<Container x={context.stateLayoutDerived.canvasSizes().width - 20}>
 			<Sprite key="louvoLogo" anchor={{ x: 1, y: 0 }} width={100} height={72.8} />
@@ -193,6 +194,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		<FreeSpinIntro />
 		{#if ['desktop', 'landscape'].includes(context.stateLayoutDerived.layoutType())}
 			<FreeSpinCounter />
+			<BonusWinCounter />
 		{/if}
 		<FreeSpinOutro />
 		<Transition />
@@ -376,7 +378,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p><strong>AFTER DARK</strong> — 150x your bet — instantly unlocks 10 free spins in the nighttime setting.</p>
 
 	<h2>BET</h2>
-	<p>Bet levels range from 0.10 to 2000 in your selected currency. Bonus buys and other special feature purchases can cost more than the maximum base bet.</p>
+	<p>Bet levels range from 0.01 to 1,000 in your selected currency. Bonus buys and other special feature purchases can cost more than the maximum base bet.</p>
 </div>`}
 	{/snippet}
 </Modals>

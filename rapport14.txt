@@ -1,0 +1,196 @@
+===== 1. ffmpeg disponible ? =====
+ABSENT - il faudra l'installer
+
+===== 2. winLevelMap complet =====
+     1	import { SECOND } from 'constants-shared/time';
+     2	
+     3	export const winLevelMap = {
+     4		1: {
+     5			level: 1,
+     6			alias: 'zero',
+     7			type: 'small',
+     8			text: null,
+     9			presentDuration: 0,
+    10			sound: { sfx: undefined, bgm: undefined },
+    11			animation: undefined,
+    12		},
+    13		2: {
+    14			level: 2,
+    15			alias: 'standard',
+    16			type: 'small',
+    17			text: null,
+    18			presentDuration: 0.6 * SECOND,
+    19			sound: { sfx: undefined, bgm: undefined },
+    20			animation: undefined,
+    21		},
+    22		3: {
+    23			level: 3,
+    24			alias: 'small',
+    25			type: 'small',
+    26			text: null,
+    27			presentDuration: 1 * SECOND,
+    28			sound: { sfx: undefined, bgm: undefined },
+    29			animation: undefined,
+    30		},
+    31		4: {
+    32			level: 4,
+    33			alias: 'nice',
+    34			type: 'medium',
+    35			text: null,
+    36			presentDuration: 1.5 * SECOND,
+    37			sound: { sfx: undefined, bgm: undefined },
+    38			animation: undefined,
+    39		},
+    40		5: {
+    41			level: 5,
+    42			alias: 'substantial',
+    43			type: 'medium',
+    44			text: null,
+    45			presentDuration: 2.0 * SECOND,
+    46			sound: { sfx: undefined, bgm: undefined },
+    47			animation: undefined,
+    48		},
+    49		6: {
+    50			level: 6,
+    51			alias: 'big',
+    52			type: 'big',
+    53			text: 'BIG WIN',
+    54			presentDuration: 6 * SECOND,
+    55			sound: { sfx: undefined, bgm: 'bgm_winlevel_big' },
+    56			animation: { intro: 'big_win_intro', idle: 'big_win_idle', outro: 'big_win_exit' },
+    57		},
+    58		7: {
+    59			level: 7,
+    60			alias: 'superwin',
+    61			type: 'big',
+    62			text: 'SUPER WIN',
+    63			presentDuration: 18 * SECOND,
+    64			sound: { sfx: undefined, bgm: 'bgm_winlevel_superwin' },
+    65			animation: { intro: 'super_win_intro', idle: 'super_win_idle', outro: 'super_win_exit' },
+    66		},
+    67		8: {
+    68			level: 8,
+    69			alias: 'mega',
+    70			type: 'big',
+    71			text: 'MEGA WIN',
+    72			presentDuration: 20 * SECOND,
+    73			sound: { sfx: undefined, bgm: 'bgm_winlevel_mega' },
+    74			animation: { intro: 'mega_win_intro', idle: 'mega_win_idle', outro: 'mega_win_exit' },
+    75		},
+    76		9: {
+    77			level: 9,
+    78			alias: 'epic',
+    79			type: 'big',
+    80			text: 'EPIC WIN!',
+    81			presentDuration: 26 * SECOND,
+    82			sound: { sfx: undefined, bgm: 'bgm_winlevel_epic' },
+    83			animation: { intro: 'epic_win_intro', idle: 'epic_win_idle', outro: 'epic_win_exit' },
+    84		},
+    85		10: {
+    86			level: 10,
+    87			alias: 'max',
+    88			type: 'big',
+    89			text: 'MAX WIN',
+    90			presentDuration: 32 * SECOND,
+    91			sound: { sfx: undefined, bgm: 'bgm_winlevel_max' },
+    92			animation: { intro: 'max_win_intro', idle: 'max_win_idle', outro: 'max_win_exit' },
+    93		},
+    94	} as const;
+    95	
+    96	export type WinLevelMap = typeof winLevelMap;
+    97	export type WinLevel = keyof typeof winLevelMap;
+    98	export type WinLevelData = WinLevelMap[WinLevel];
+    99	export type WinLevelAlias = WinLevelData['alias'];
+
+===== 3. Win.svelte : branche animation des gros gains =====
+</script>
+
+<FadeContainer {show}>
+	{#if winLevelData}
+		{@const isBigWin = winLevelData.type === 'big'}
+		{@const duration = winLevelData.presentDuration}
+		<WinCountUpProvider {amount} {duration} oncomplete={() => onCountUpComplete()}>
+			{#snippet children({ countUpAmount, startCountUp, finishCountUp, countUpCompleted })}
+				<CanvasSizeRectangle backgroundColor={0x000000} backgroundAlpha={0.5} />
+
+				<OnMount
+					onmount={async () => {
+						if (isBigWin) {
+							// A partir de BIG WIN : compte depuis zero, reste affiche
+							// le temps prevu pour la mise en scene.
+							await startCountUp();
+							await waitForTimeout(300);
+							if (!stateBet.stopOnWin) {
+								await waitForTimeout(duration);
+								oncomplete();
+							}
+						} else {
+							// En dessous de BIG WIN : affichage instantane, pas de
+							// comptage depuis zero, enchainement direct sur le tour
+							// suivant, sans aucune attente.
+							finishCountUp();
+							if (!stateBet.stopOnWin) {
+								oncomplete();
+							}
+						}
+						// Si stopOnWin est actif, reste affiche jusqu'a un clic manuel
+						// (PressToContinue) ou le prochain spin, quel que soit le palier.
+					}}
+				/>
+
+				<MainContainer>
+					<Container
+						x={context.stateGameDerived.boardLayout().x}
+						y={context.stateGameDerived.boardLayout().y}
+					>
+						{#if winLevelData?.animation}
+							<WinAnimation animationMap={winLevelData.animation}>
+								<Rectangle
+									anchor={0.5}
+									width={SYMBOL_SIZE * 7.2}
+									height={SYMBOL_SIZE * 1.7}
+									backgroundColor={0x000000}
+									alpha={0.6}
+								/>
+								<ResponsiveBitmapText
+									anchor={0.5}
+									maxWidth={SYMBOL_SIZE * 6.8}
+									text={bookEventAmountToCurrencyString(countUpAmount)}
+									style={{
+										fontFamily: 'gold', fill: 0xff2d6a,
+										fontSize: SYMBOL_SIZE * 1.25,
+										align: 'center',
+										fontWeight: 'bold',
+										letterSpacing: 0,
+									}}
+								/>
+							</WinAnimation>
+						{:else}
+							<Rectangle
+								anchor={0.5}
+								width={SYMBOL_SIZE * 2.6}
+
+===== 4. assets.ts : section des ecrans =====
+156-	loadingScreen: {
+157-		type: 'sprite',
+158:		src: new URL('../../assets/sprites/screens/loading_screen.png', import.meta.url).href,
+159-		preload: true,
+160-	},
+161-	progressBar: {
+162-		type: 'sprites',
+--
+170-	speedDatingAnnounce: {
+171-		type: 'sprite',
+172:		src: new URL('../../assets/sprites/screens/speed_dating_announce.png', import.meta.url).href,
+173-	},
+174-	afterDarkAnnounce: {
+175-		type: 'sprite',
+176:		src: new URL('../../assets/sprites/screens/after_dark_announce.png', import.meta.url).href,
+177-	},
+178-	bonus4ScatterScreen: {
+179-		type: 'sprite',
+180-		src: new URL('../../assets/sprites/screens/bonus_4_scatter_screen.png', import.meta.url).href,
+
+===== 5. Fichiers maxwin deposes ? =====
+-rw-rw-rw-   1 codespace codespace 2797258 Aug 20 22:59 maxwin.png
+-rw-rw-rw- 1 codespace codespace 2778702 Aug 20 23:03 maxwin.wav

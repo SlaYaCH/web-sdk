@@ -88,7 +88,7 @@ export const winLevelMap = {
 		type: 'big',
 		text: 'MAX WIN',
 		presentDuration: 32 * SECOND,
-		sound: { sfx: undefined, bgm: 'bgm_winlevel_max' },
+		sound: { sfx: undefined, bgm: 'bgm_maxwin' },
 		animation: { intro: 'max_win_intro', idle: 'max_win_idle', outro: 'max_win_exit' },
 	},
 } as const;

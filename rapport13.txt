@@ -1,0 +1,159 @@
+===== 1. Ou s'affiche LINES GAME =====
+apps/louvo/src/game/config.ts:3:	"gameName": "Louvo",
+apps/louvo/src/components/Game.svelte:10:	import { UiGameName } from 'components-ui-pixi';
+apps/louvo/src/components/Game.svelte:131:			<UiGameName name="LINES GAME" />
+packages/components-ui-pixi/src/types.ts:39:	gameName: Snippet;
+packages/components-ui-pixi/src/components/LayoutLandscape.svelte:16:	{@render props.gameName()}
+packages/components-ui-pixi/src/components/UI.svelte:10:		gameName: Snippet;
+packages/components-ui-pixi/src/components/UI.svelte:25:	{#snippet gameName()}
+packages/components-ui-pixi/src/components/UI.svelte:26:		{@render props.gameName()}
+packages/components-ui-pixi/src/components/UIDefault.svelte:29:		gameName: Snippet;
+packages/components-ui-pixi/src/components/UIDefault.svelte:51:		{#snippet gameName()}
+packages/components-ui-pixi/src/components/UIDefault.svelte:52:			{@render props.gameName()}
+packages/components-ui-pixi/src/components/LayoutPortrait.svelte:70:	{@render props.gameName()}
+packages/components-ui-pixi/src/components/LayoutTablet.svelte:17:	{@render props.gameName()}
+packages/components-ui-pixi/src/components/UIReplay.svelte:23:		gameName: LayoutUiProps['gameName'];
+packages/components-ui-pixi/src/components/UIReplay.svelte:35:		{@render props.gameName()}
+
+===== 2. Niveaux de gain (winLevelMap) et montant de mise =====
+apps/louvo/src/game/winLevelMap.ts-1-import { SECOND } from 'constants-shared/time';
+apps/louvo/src/game/winLevelMap.ts-2-
+apps/louvo/src/game/winLevelMap.ts:3:export const winLevelMap = {
+apps/louvo/src/game/winLevelMap.ts-4-	1: {
+apps/louvo/src/game/winLevelMap.ts-5-		level: 1,
+apps/louvo/src/game/winLevelMap.ts-6-		alias: 'zero',
+apps/louvo/src/game/winLevelMap.ts-7-		type: 'small',
+apps/louvo/src/game/winLevelMap.ts-8-		text: null,
+apps/louvo/src/game/winLevelMap.ts-9-		presentDuration: 0,
+apps/louvo/src/game/winLevelMap.ts-10-		sound: { sfx: undefined, bgm: undefined },
+apps/louvo/src/game/winLevelMap.ts-11-		animation: undefined,
+apps/louvo/src/game/winLevelMap.ts-12-	},
+apps/louvo/src/game/winLevelMap.ts-13-	2: {
+apps/louvo/src/game/winLevelMap.ts-14-		level: 2,
+apps/louvo/src/game/winLevelMap.ts-15-		alias: 'standard',
+apps/louvo/src/game/winLevelMap.ts-16-		type: 'small',
+apps/louvo/src/game/winLevelMap.ts-17-		text: null,
+apps/louvo/src/game/winLevelMap.ts-18-		presentDuration: 0.6 * SECOND,
+apps/louvo/src/game/winLevelMap.ts-19-		sound: { sfx: undefined, bgm: undefined },
+apps/louvo/src/game/winLevelMap.ts-20-		animation: undefined,
+apps/louvo/src/game/winLevelMap.ts-21-	},
+apps/louvo/src/game/winLevelMap.ts-22-	3: {
+apps/louvo/src/game/winLevelMap.ts-23-		level: 3,
+--
+apps/louvo/src/game/winLevelMap.ts-94-} as const;
+apps/louvo/src/game/winLevelMap.ts-95-
+apps/louvo/src/game/winLevelMap.ts:96:export type WinLevelMap = typeof winLevelMap;
+apps/louvo/src/game/winLevelMap.ts:97:export type WinLevel = keyof typeof winLevelMap;
+apps/louvo/src/game/winLevelMap.ts-98-export type WinLevelData = WinLevelMap[WinLevel];
+apps/louvo/src/game/winLevelMap.ts-99-export type WinLevelAlias = WinLevelData['alias'];
+--
+apps/louvo/src/game/stateGame.svelte.ts-9-import type { GameType, RawSymbol, SymbolState } from './types';
+apps/louvo/src/game/stateGame.svelte.ts-10-import { stateLayoutDerived } from './stateLayout';
+apps/louvo/src/game/stateGame.svelte.ts:11:import { winLevelMap } from './winLevelMap';
+apps/louvo/src/game/stateGame.svelte.ts-12-import { eventEmitter } from './eventEmitter';
+apps/louvo/src/game/stateGame.svelte.ts-13-import {
+apps/louvo/src/game/stateGame.svelte.ts-14-	SYMBOL_SIZE,
+apps/louvo/src/game/stateGame.svelte.ts-15-	SYMBOL_HEIGHT,
+apps/louvo/src/game/stateGame.svelte.ts-16-	BOARD_SIZES,
+apps/louvo/src/game/stateGame.svelte.ts-17-	INITIAL_BOARD,
+apps/louvo/src/game/stateGame.svelte.ts-18-	BOARD_DIMENSIONS,
+apps/louvo/src/game/stateGame.svelte.ts-19-	SPIN_OPTIONS_DEFAULT,
+apps/louvo/src/game/stateGame.svelte.ts-20-	SPIN_OPTIONS_FAST,
+apps/louvo/src/game/stateGame.svelte.ts-21-	SPIN_OPTIONS_SUPERFAST,
+apps/louvo/src/game/stateGame.svelte.ts-22-	INITIAL_SYMBOL_STATE,
+apps/louvo/src/game/stateGame.svelte.ts-23-	SCATTER_LAND_SOUND_MAP,
+apps/louvo/src/game/stateGame.svelte.ts-24-} from './constants';
+apps/louvo/src/game/stateGame.svelte.ts-25-
+apps/louvo/src/game/stateGame.svelte.ts-26-const onSymbolLand = ({ rawSymbol }: { rawSymbol: RawSymbol }) => {
+apps/louvo/src/game/stateGame.svelte.ts-27-	if (rawSymbol.name === 'S') {
+apps/louvo/src/game/stateGame.svelte.ts-28-		eventEmitter.broadcast({ type: 'soundScatterCounterIncrease' });
+apps/louvo/src/game/stateGame.svelte.ts-29-		eventEmitter.broadcast({
+apps/louvo/src/game/stateGame.svelte.ts-30-			type: 'soundOnce',
+apps/louvo/src/game/stateGame.svelte.ts-31-			name: SCATTER_LAND_SOUND_MAP[scatterLandIndex()],
+--
+apps/louvo/src/game/stateGame.svelte.ts-127-
+apps/louvo/src/game/stateGame.svelte.ts-128-export const { getWinLevelDataByWinLevelAlias } = createGetWinLevelDataByWinLevelAlias({
+apps/louvo/src/game/stateGame.svelte.ts:129:	winLevelMap,
+apps/louvo/src/game/stateGame.svelte.ts-130-});
+apps/louvo/src/game/stateGame.svelte.ts-131-
+---
+
+===== 3. Structure du sprite audio (pour integrer maxwin.wav) =====
+sounds.ac3
+sounds.json
+sounds.m4a
+sounds.mp3
+sounds.ogg
+['sprite', 'src', 'config']
+{
+ "bgm_freespin": [
+  0,
+  69120,
+  true
+ ],
+ "bgm_main": [
+  71000,
+  132452.83446712018,
+  true
+ ],
+ "bgm_winlevel_big": [
+  205000,
+  8000,
+  true
+ ],
+ "bgm_winlevel_epic": [
+  214000,
+  8000,
+  true
+ ],
+ "bgm_winlevel_max": [
+  223000,
+  8000,
+  true
+ ],
+ "bgm_winlevel_mega": [
+  232000,
+  8000,
+  true
+ ],
+ "bgm_winlevel_superwin": [
+  241000,
+  8000,
+  true
+ ],
+ "jng_intro_fs": [
+  250000,
+  2002.585034013606
+ ],
+ "sfx_anticipation": [
+  254000,
+  7680.5442176871
+ ],
+ "sfx_anticipation_start": [
+  263000,
+  1000
+ ],
+ "sfx_bigwin_coinloop": [
+  265000,
+  17125.0113378685,
+  true
+ ],
+ "sfx_btn_general": [
+  284000,
+  58.66213151927013
+ ],
+ "sfx_btn_spin": [
+  286000,
+  1005.5782312925317
+ ],
+ "sfx_fs_respins": [
+  289000,
+  4062.49433106575
+ ],
+ "sfx_multiplier_combine_a": [
+  295000,
+
+
+===== 4. Verification des deux nouveaux fichiers =====
+ls: cannot access 'apps/louvo/static/assets/sprites/screens/maxwin.png': No such file or directory
+ls: cannot access 'apps/louvo/static/assets/audio/maxwin.wav': No such file or directory

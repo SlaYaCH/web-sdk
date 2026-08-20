@@ -16,7 +16,7 @@
 
 	// Correction fine du cadre d'anticipation (il penche a droite sur la grille).
 	// Ajustez ce coefficient : plus grand = plus a gauche.
-	const ANTICIPATION_X_CORRECTION = SYMBOL_SIZE * 0.25;
+	const ANTICIPATION_X_CORRECTION = SYMBOL_SIZE * 0.17;
 
 	type AnimationName = 'anticipation_intro' | 'anticipation_loop' | 'anticipation_out';
 

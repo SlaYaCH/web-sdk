@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-	import { Container, Rectangle } from 'pixi-svelte';
+	import { Container, Rectangle, Sprite } from 'pixi-svelte';
 	import { FadeContainer, WinCountUpProvider, ResponsiveBitmapText } from 'components-pixi';
 	import { waitForResolve, waitForTimeout } from 'utils-shared/wait';
 	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
@@ -83,6 +83,28 @@
 						y={context.stateGameDerived.boardLayout().y}
 					>
 						{#if winLevelData?.animation}
+							{#if winLevelData.alias === 'max'}
+								<Sprite
+									anchor={0.5}
+									key="maxwinScreen"
+									width={SYMBOL_SIZE * 6.6}
+									height={SYMBOL_SIZE * 4.4}
+									y={-SYMBOL_SIZE * 0.5}
+								/>
+								<ResponsiveBitmapText
+									anchor={0.5}
+									y={SYMBOL_SIZE * 2.15}
+									maxWidth={SYMBOL_SIZE * 6.2}
+									text={bookEventAmountToCurrencyString(countUpAmount)}
+									style={{
+										fontFamily: 'gold', fill: 0xff2d6a,
+										fontSize: SYMBOL_SIZE * 1.05,
+										align: 'center',
+										fontWeight: 'bold',
+										letterSpacing: 0,
+									}}
+								/>
+							{:else}
 							<WinAnimation animationMap={winLevelData.animation}>
 								<Rectangle
 									anchor={0.5}
@@ -104,6 +126,7 @@
 									}}
 								/>
 							</WinAnimation>
+							{/if}
 						{:else}
 							<Rectangle
 								anchor={0.5}

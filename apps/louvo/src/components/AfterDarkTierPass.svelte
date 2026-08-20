@@ -29,8 +29,8 @@
 		}
 	});
 
-	const cardWidth = SYMBOL_SIZE * 1.6;
-	const cardHeight = SYMBOL_SIZE * 2.2;
+	const cardWidth = SYMBOL_SIZE * 3.2;
+	const cardHeight = SYMBOL_SIZE * 4.4;
 </script>
 
 {#if visibleTier > 0 && DUEL_CARD_BY_TIER[visibleTier]}

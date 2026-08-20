@@ -48,7 +48,12 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			stateGame.superlikeAnimationPromise = null;
 		}
 		// Chaque nouveau tour (free spins compris) cloture les bannieres du tour precedent.
-		stateGame.bannerEpoch += 1;
+		// Fermeture differee : les bannieres du tour precedent se ferment une fois
+		// les rouleaux partis (comme lorsqu'un gain retarde le tour suivant) - la
+		// colonne de W du book n'est jamais visible a l'arret, meme en turbo.
+		setTimeout(() => {
+			stateGame.bannerEpoch += 1;
+		}, 150);
 		// Purge les drapeaux d'anticipation restes bloques d'un tour precedent
 		// (l'animation ne se termine pas toujours, le drapeau restait a true).
 		for (const reel of stateGame.board) {

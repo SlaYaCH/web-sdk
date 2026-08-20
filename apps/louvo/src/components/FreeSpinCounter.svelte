@@ -24,7 +24,7 @@
 	});
 	const scale = 1;
 	const position = $derived({
-		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5,
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
 		y:
 			context.stateGameDerived.boardLayout().y +
 			context.stateGameDerived.boardLayout().height * 0.5 +
