@@ -20,11 +20,11 @@
 	const TEXT_WRAP_WIDTH = CARD_WIDTH * 0.78;
 
 	const OPTIONS = [
-		{ key: 'date', confirmKey: 'date', modeKey: 'MATCH_BOOST', desc: 'Chance x5 de bonus', mult: 3.0 },
-		{ key: 'match', confirmKey: 'match', modeKey: 'MATCH_FRENZY', desc: 'Garantit des MATCH', mult: 60.0 },
-		{ key: 'superlike', confirmKey: 'superlike', modeKey: 'LIKE_STORM', desc: 'Garantit un Super Like', mult: 60.0 },
-		{ key: 'speeddating', confirmKey: 'speeddating', modeKey: 'BONUS_SPEED_DATING', desc: '10 tours - Speed Dating', mult: 80.0 },
-		{ key: 'afterdark', confirmKey: 'afterdark', modeKey: 'BONUS_AFTER_DARK', desc: '10 tours - After Dark', mult: 150.0 },
+		{ key: 'date', confirmKey: 'date', modeKey: 'MATCH_BOOST', desc: '5x bonus chance', mult: 3.0 },
+		{ key: 'match', confirmKey: 'match', modeKey: 'MATCH_FRENZY', desc: 'Guaranteed MATCH', mult: 60.0 },
+		{ key: 'superlike', confirmKey: 'superlike', modeKey: 'LIKE_STORM', desc: 'Guaranteed Super Like', mult: 60.0 },
+		{ key: 'speeddating', confirmKey: 'speeddating', modeKey: 'BONUS_SPEED_DATING', desc: '10 spins - Speed Dating', mult: 80.0 },
+		{ key: 'afterdark', confirmKey: 'afterdark', modeKey: 'BONUS_AFTER_DARK', desc: '10 spins - After Dark', mult: 150.0 },
 	];
 
 	let confirming = $state<(typeof OPTIONS)[number] | null>(null);

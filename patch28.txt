@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 28 : textes de l'ecran d'achat traduits en anglais
+# (les 5 descriptions du tableau OPTIONS de LouvoBonusMenu ;
+#  les confirmations reprennent la meme description -> corrigees
+#  du meme coup). Les libelles RETOUR/OK sont PEINTS dans les
+#  images louvo_confirm_*.png : hors de portee du code.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch28.txt
+#   3) envoyer rapport31.txt
+# Build coupe automatiquement (5 min max), pas de Ctrl+C.
+# ============================================================
+import os
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+MENU = "apps/louvo/src/components/LouvoBonusMenu.svelte"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    rep(MENU, "desc: 'Chance x5 de bonus'", "desc: '5x bonus chance'", "T1")
+    rep(MENU, "desc: 'Garantit des MATCH'", "desc: 'Guaranteed MATCH'", "T2")
+    rep(MENU, "desc: 'Garantit un Super Like'", "desc: 'Guaranteed Super Like'", "T3")
+    rep(MENU, "desc: '10 tours - Speed Dating'", "desc: '10 spins - Speed Dating'", "T4")
+    rep(MENU, "desc: '10 tours - After Dark'", "desc: '10 spins - After Dark'", "T5")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    report.append("")
+    report.append("===== PREUVES =====")
+    all_ok = not patch_failed
+    with open(MENU) as f:
+        content = f.read()
+    for needle, expected in [
+        ("5x bonus chance", 1),
+        ("Guaranteed MATCH", 1),
+        ("Guaranteed Super Like", 1),
+        ("10 spins - Speed Dating", 1),
+        ("10 spins - After Dark", 1),
+    ]:
+        n = content.count(needle)
+        report.append("%-28s : %d (attendu %d)" % (needle, n, expected))
+        if n != expected:
+            all_ok = False
+    report.append("----- restes francais (attendu 0) -----")
+    for needle in ["tours", "Garantit", "Chance x5"]:
+        n = content.count(needle)
+        report.append("%-28s : %d" % (needle, n))
+        if n != 0:
+            all_ok = False
+
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    with open("rapport31.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        report.extend(log.rstrip().split("\n")[-6:])
+        site_ecrit = ("Wrote site to" in log) or ("done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - comportement pnpm connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - commit, deploiement, tests" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport31.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport31.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()
