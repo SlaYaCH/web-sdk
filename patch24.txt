@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 24 : l'ecran d'annonce de bonus recoit son tier
+# directement dans l'evenement d'ouverture -> plus de flash de
+# l'image Speed Dating a l'achat d'un After Dark.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch24.txt
+#   3) envoyer rapport25.txt
+# Build coupe automatiquement (5 min max), pas de Ctrl+C.
+# ============================================================
+import os
+import subprocess
+import sys
+
+T = "\t"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+INTRO = "apps/louvo/src/components/FreeSpinIntro.svelte"
+BOOK = "apps/louvo/src/game/bookEventHandlerMap.ts"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    # A1. type de l'evenement : tier optionnel
+    rep(INTRO,
+        T*2 + "| { type: 'freeSpinIntroShow' }",
+        T*2 + "| { type: 'freeSpinIntroShow'; tier?: string }", "A1")
+
+    # A2. etat local : le tier de l'annonce, independant du decor
+    rep(INTRO,
+        T + "let freeSpinsFromEvent = $state(0);",
+        "\n".join([
+            T + "let freeSpinsFromEvent = $state(0);",
+            T + "// Image d'annonce : le tier arrive AVEC l'evenement d'ouverture - ne pas",
+            T + "// lire stateGame.tier, pose 450 ms plus tard exprès (changement de decor",
+            T + "// cache sous l'annonce), ce qui faisait flasher l'image Speed Dating.",
+            T + "let announceTier = $state('speed_dating');",
+        ]), "A2")
+
+    # A3. handler d'ouverture : memorise le tier recu
+    rep(INTRO,
+        T*2 + "freeSpinIntroShow: () => (show = true),",
+        "\n".join([
+            T*2 + "freeSpinIntroShow: (emitterEvent) => {",
+            T*3 + "announceTier = emitterEvent.tier ?? 'speed_dating';",
+            T*3 + "show = true;",
+            T*2 + "},",
+        ]), "A3")
+
+    # A4. le sprite lit le tier de l'annonce
+    rep(INTRO,
+        T*3 + "key={context.stateGame.tier === 'after_dark' ? 'afterDarkAnnounce' : 'speedDatingAnnounce'}",
+        T*3 + "key={announceTier === 'after_dark' ? 'afterDarkAnnounce' : 'speedDatingAnnounce'}", "A4")
+
+    # B1. freeSpinTrigger : envoie le tier avec l'ouverture de l'annonce
+    rep(BOOK,
+        T*2 + "eventEmitter.broadcast({ type: 'freeSpinIntroShow' });",
+        "\n".join([
+            T*2 + "// L'annonce recoit son tier directement : la bonne image des la premiere",
+            T*2 + "// frame (stateGame.tier n'est pose que 450 ms plus tard, sous l'annonce).",
+            T*2 + "eventEmitter.broadcast({ type: 'freeSpinIntroShow', tier: bookEvent.tier ?? 'speed_dating' });",
+        ]), "B1")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    report.append("")
+    report.append("===== PREUVES (attendu >= 1) =====")
+    checks = [
+        (INTRO, "announceTier"),
+        (INTRO, "tier?: string"),
+        (BOOK, "freeSpinIntroShow', tier: bookEvent.tier"),
+    ]
+    all_ok = not patch_failed
+    for p, needle in checks:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-28s %-45s : %d" % (os.path.basename(p), needle, n))
+        if n < 1:
+            all_ok = False
+    report.append("----- restes (attendu 0) -----")
+    for p, needle in [(INTRO, "context.stateGame.tier === 'after_dark' ? 'afterDarkAnnounce'")]:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-28s %-45s : %d" % (os.path.basename(p), needle, n))
+        if n != 0:
+            all_ok = False
+
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    with open("rapport25.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        report.extend(log.rstrip().split("\n")[-6:])
+        site_ecrit = ("Wrote site to" in log) or ("done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - pnpm ne rendait pas la main, comportement connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - commit, deploiement, tests" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport25.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport25.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()

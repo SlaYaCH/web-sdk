@@ -92,6 +92,15 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
 			recordBookEvent({ bookEvent });
 		}
+		// Palier After Dark franchi au tour precedent : les deux cartes
+		// s'affichent MAINTENANT, juste avant le tour special, rouleaux a l'arret
+		// - en dehors de toute presentation de gains, aucun chevauchement possible.
+		if (stateGame.tierPassPending) {
+			stateGame.tierPassToShow = stateGame.tierPassPending;
+			stateGame.tierPassPending = 0;
+			// AfterDarkTierPass s'auto-masque au bout de 1800 ms.
+			await new Promise((resolve) => setTimeout(resolve, 1900));
+		}
 		stateGame.gameType = bookEvent.gameType;
 		await stateGameDerived.enhancedBoard.spin({
 			revealEvent: bookEvent,
@@ -125,7 +134,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			]);
 			stateGame.superlikeAnimationPromise = null;
 		}
-		stateGame.superlikeHeartsLaunched = 0;
 		console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));
 		// Deux SUPER LIKE dans le MEME tour : leurs bookEvents arrivent AVANT le
 		// reveal, donc ce handler ne doit JAMAIS bloquer la sequence (sinon les
@@ -136,6 +144,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			stateGame.superlikeAnimationEpoch === stateGame.bannerEpoch
 				? stateGame.superlikeAnimationPromise
 				: null;
+		// Compteur de coeurs CUMULE sur le tour (chaque barillet se cale dessus
+		// via son offset) : remis a zero seulement au PREMIER Super Like du tour.
+		if (!previousTail) stateGame.superlikeHeartsLaunched = 0;
 		let throwDone!: () => void;
 		const throwPromise = new Promise<void>((resolve) => (throwDone = resolve));
 		stateGame.superlikeStartGates.push(previousTail ?? Promise.resolve());
@@ -195,13 +206,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			]);
 			stateGame.superlikeAnimationPromise = null;
 		}
-		// Palier After Dark franchi pendant ce tour : les deux cartes s'affichent
-		// MAINTENANT - apres les gains - et restent ~1,9 s avant le tour special.
-		if (stateGame.tierPassPending) {
-			stateGame.tierPassToShow = stateGame.tierPassPending;
-			stateGame.tierPassPending = 0;
-			await new Promise((resolve) => setTimeout(resolve, 1900));
-		}
 	},
 	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
 		stateBetDerived.updateIsTurbo(false, { persistent: true });
@@ -214,7 +218,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		// L'ecran d'annonce s'affiche D'ABORD ; le changement de decor (grille
 		// After Dark, fond nuit) se fait ensuite SOUS l'annonce, une fois son
 		// fondu d'entree termine - plus aucun apercu de l'ancienne slot.
-		eventEmitter.broadcast({ type: 'freeSpinIntroShow' });
+		// L'annonce recoit son tier directement : la bonne image des la premiere
+		// frame (stateGame.tier n'est pose que 450 ms plus tard, sous l'annonce).
+		eventEmitter.broadcast({ type: 'freeSpinIntroShow', tier: bookEvent.tier ?? 'speed_dating' });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'jng_intro_fs' });
 		await new Promise((r) => setTimeout(r, 450));
 		stateGame.tier = bookEvent.tier ?? 'speed_dating';

@@ -30,6 +30,8 @@
 		duelValues?: [number, number];
 		likePositions?: { reelIndex: number; rowIndex: number }[];
 		likes: number;
+		// Coeurs deja lances par les autres Super Like du MEME tour (offset barillet).
+		likesBefore: number;
 		bannerX: number;
 		reelIndex: number;
 		closeToken: number;
@@ -59,6 +61,11 @@
 					duelValues: emitterEvent.duelValues,
 					likePositions: emitterEvent.likePositions,
 					likes: emitterEvent.likePositions?.length ?? 0,
+					// Somme des coeurs des Super Like deja actifs sur CE tour : sert d'offset
+					// pour que chaque barillet ne se vide qu'au rythme de SA distribution.
+					likesBefore: activeReveals
+						.filter((r) => r.assetKey === 'superlikeReveal' && r.epoch === context.stateGame.bannerEpoch)
+						.reduce((sum, r) => sum + r.likes, 0),
 					// Correction fine : bannieres des rouleaux 2-5 ~1mm trop a droite (valeur ajustable).
 					bannerX: getSymbolX(emitterEvent.reelIndex) - (emitterEvent.reelIndex > 0 ? 2 : 0),
 					reelIndex: emitterEvent.reelIndex,
@@ -96,6 +103,7 @@
 					duelValues={reveal.duelValues}
 					duelWinner={reveal.multiplier}
 					likes={reveal.likes}
+					likesBefore={reveal.likesBefore}
 					x={reveal.bannerX}
 					y={BOARD_SIZES.height / 2}
 					zIndex={30}

@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export type EmitterEventFreeSpinIntro =
-		| { type: 'freeSpinIntroShow' }
+		| { type: 'freeSpinIntroShow'; tier?: string }
 		| { type: 'freeSpinIntroHide' }
 		| { type: 'freeSpinIntroUpdate'; totalFreeSpins: number };
 </script>
@@ -23,10 +23,17 @@
 	let show = $state(false);
 	let animationName = $state<AnimationName>('intro');
 	let freeSpinsFromEvent = $state(0);
+	// Image d'annonce : le tier arrive AVEC l'evenement d'ouverture - ne pas
+	// lire stateGame.tier, pose 450 ms plus tard exprès (changement de decor
+	// cache sous l'annonce), ce qui faisait flasher l'image Speed Dating.
+	let announceTier = $state('speed_dating');
 	let oncomplete = $state(() => {});
 
 	context.eventEmitter.subscribeOnMount({
-		freeSpinIntroShow: () => (show = true),
+		freeSpinIntroShow: (emitterEvent) => {
+			announceTier = emitterEvent.tier ?? 'speed_dating';
+			show = true;
+		},
 		freeSpinIntroHide: () => (show = false),
 		freeSpinIntroUpdate: async (emitterEvent) => {
 			// if (emitterEvent.extraSpins) {
@@ -48,7 +55,7 @@
 			y={context.stateLayoutDerived.mainLayout().height * 0.5}
 			width={context.stateLayoutDerived.mainLayout().width}
 			height={context.stateLayoutDerived.mainLayout().height}
-			key={context.stateGame.tier === 'after_dark' ? 'afterDarkAnnounce' : 'speedDatingAnnounce'}
+			key={announceTier === 'after_dark' ? 'afterDarkAnnounce' : 'speedDatingAnnounce'}
 		/>
 	</MainContainer>
 

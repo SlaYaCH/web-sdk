@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 23 :
+#  (1) cartes de palier After Dark affichees JUSTE AVANT le tour
+#      special (correction du vrai declencheur, jamais patche a
+#      cause d'une indentation fausse dans un ancien script)
+#  (2) barillets independants quand deux Super Like tombent dans
+#      le meme tour (compteur cumule + offset par banniere)
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch23.txt
+#   3) envoyer rapport24.txt
+#
+# Le build est lance avec un delai max de 5 min puis coupe tout
+# seul (le "pnpm qui ne rend pas la main" est gere) - AUCUN
+# Ctrl+C necessaire. Re-executable sans risque.
+# ============================================================
+import os
+import subprocess
+import sys
+
+T = "\t"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+BOOK = "apps/louvo/src/game/bookEventHandlerMap.ts"
+THROW = "apps/louvo/src/components/SuperlikeHeartThrow.svelte"
+OVERLAY = "apps/louvo/src/components/SpecialRevealOverlay.svelte"
+BANNER = "apps/louvo/src/components/BannerReveal.svelte"
+BARILLET = "apps/louvo/src/components/SuperlikeBarilletDisplay.svelte"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    # "deja applique" : selon que le patch retire du texte (new inclus dans old)
+    # ou en ajoute (old inclus dans new), le bon signal n'est pas le meme.
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    # ---- P1. flyTo : le palier franchi est mis EN ATTENTE (bonne indentation cette fois) ----
+    rep(THROW,
+        "\n".join([
+            T*4 + "if (context.stateGame.streakLikes >= 6) {",
+            T*5 + "// Palier vide : affiche les cartes (DUEL du palier + '+3 free spins').",
+            T*5 + "context.stateGame.tierPassToShow = context.stateGame.streakTier;",
+            T*5 + "context.stateGame.streakTier += 1;",
+            T*5 + "context.stateGame.streakLikes = 0;",
+            T*4 + "}",
+        ]),
+        "\n".join([
+            T*4 + "if (context.stateGame.streakLikes >= 6) {",
+            T*5 + "// Palier vide : les cartes ne s'affichent PAS ici (au milieu de la",
+            T*5 + "// distribution) mais juste avant le tour special (handler reveal).",
+            T*5 + "context.stateGame.tierPassPending = context.stateGame.streakTier;",
+            T*5 + "context.stateGame.streakTier += 1;",
+            T*5 + "context.stateGame.streakLikes = 0;",
+            T*4 + "}",
+        ]), "P1")
+
+    # ---- P2. flyTo : compteur de coeurs CUMULE sur le tour ----
+    rep(THROW,
+        T*3 + "context.stateGame.superlikeHeartsLaunched = index + 1;",
+        T*3 + "context.stateGame.superlikeHeartsLaunched += 1;", "P2")
+
+    # ---- P3. superlikeReveal : remise a zero du compteur SEULEMENT au 1er Super Like du tour ----
+    rep(BOOK,
+        "\n".join([
+            T*2 + "stateGame.superlikeHeartsLaunched = 0;",
+            T*2 + "console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));",
+            T*2 + "// Deux SUPER LIKE dans le MEME tour : leurs bookEvents arrivent AVANT le",
+        ]),
+        "\n".join([
+            T*2 + "console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));",
+            T*2 + "// Deux SUPER LIKE dans le MEME tour : leurs bookEvents arrivent AVANT le",
+        ]), "P3a")
+    rep(BOOK,
+        "\n".join([
+            T*2 + "const previousTail =",
+            T*3 + "stateGame.superlikeAnimationEpoch === stateGame.bannerEpoch",
+            T*4 + "? stateGame.superlikeAnimationPromise",
+            T*4 + ": null;",
+        ]),
+        "\n".join([
+            T*2 + "const previousTail =",
+            T*3 + "stateGame.superlikeAnimationEpoch === stateGame.bannerEpoch",
+            T*4 + "? stateGame.superlikeAnimationPromise",
+            T*4 + ": null;",
+            T*2 + "// Compteur de coeurs CUMULE sur le tour (chaque barillet se cale dessus",
+            T*2 + "// via son offset) : remis a zero seulement au PREMIER Super Like du tour.",
+            T*2 + "if (!previousTail) stateGame.superlikeHeartsLaunched = 0;",
+        ]), "P3b")
+
+    # ---- P4. setTotalWin : les cartes ne s'affichent plus ici ----
+    rep(BOOK,
+        "\n".join([
+            T*2 + "// Palier After Dark franchi pendant ce tour : les deux cartes s'affichent",
+            T*2 + "// MAINTENANT - apres les gains - et restent ~1,9 s avant le tour special.",
+            T*2 + "if (stateGame.tierPassPending) {",
+            T*3 + "stateGame.tierPassToShow = stateGame.tierPassPending;",
+            T*3 + "stateGame.tierPassPending = 0;",
+            T*3 + "await new Promise((resolve) => setTimeout(resolve, 1900));",
+            T*2 + "}",
+            "",
+        ]),
+        "", "P4")
+
+    # ---- P5. reveal : les cartes s'affichent JUSTE AVANT le tour special ----
+    rep(BOOK,
+        "\n".join([
+            T*2 + "stateGame.gameType = bookEvent.gameType;",
+            T*2 + "await stateGameDerived.enhancedBoard.spin({",
+        ]),
+        "\n".join([
+            T*2 + "// Palier After Dark franchi au tour precedent : les deux cartes",
+            T*2 + "// s'affichent MAINTENANT, juste avant le tour special, rouleaux a l'arret",
+            T*2 + "// - en dehors de toute presentation de gains, aucun chevauchement possible.",
+            T*2 + "if (stateGame.tierPassPending) {",
+            T*3 + "stateGame.tierPassToShow = stateGame.tierPassPending;",
+            T*3 + "stateGame.tierPassPending = 0;",
+            T*3 + "// AfterDarkTierPass s'auto-masque au bout de 1800 ms.",
+            T*3 + "await new Promise((resolve) => setTimeout(resolve, 1900));",
+            T*2 + "}",
+            T*2 + "stateGame.gameType = bookEvent.gameType;",
+            T*2 + "await stateGameDerived.enhancedBoard.spin({",
+        ]), "P5")
+
+    # ---- P6. SpecialRevealOverlay : offset de coeurs par banniere ----
+    rep(OVERLAY,
+        T*2 + "likes: number;",
+        "\n".join([
+            T*2 + "likes: number;",
+            T*2 + "// Coeurs deja lances par les autres Super Like du MEME tour (offset barillet).",
+            T*2 + "likesBefore: number;",
+        ]), "P6a")
+    rep(OVERLAY,
+        T*5 + "likes: emitterEvent.likePositions?.length ?? 0,",
+        "\n".join([
+            T*5 + "likes: emitterEvent.likePositions?.length ?? 0,",
+            T*5 + "// Somme des coeurs des Super Like deja actifs sur CE tour : sert d'offset",
+            T*5 + "// pour que chaque barillet ne se vide qu'au rythme de SA distribution.",
+            T*5 + "likesBefore: activeReveals",
+            T*6 + ".filter((r) => r.assetKey === 'superlikeReveal' && r.epoch === context.stateGame.bannerEpoch)",
+            T*6 + ".reduce((sum, r) => sum + r.likes, 0),",
+        ]), "P6b")
+    rep(OVERLAY,
+        T*5 + "likes={reveal.likes}",
+        "\n".join([
+            T*5 + "likes={reveal.likes}",
+            T*5 + "likesBefore={reveal.likesBefore}",
+        ]), "P6c")
+
+    # ---- P7. BannerReveal : la prop transite jusqu'au barillet ----
+    rep(BANNER,
+        T*2 + "likes?: number;",
+        "\n".join([
+            T*2 + "likes?: number;",
+            T*2 + "likesBefore?: number;",
+        ]), "P7a")
+    rep(BANNER,
+        T*2 + "<SuperlikeBarilletDisplay likes={props.likes} />",
+        T*2 + "<SuperlikeBarilletDisplay likes={props.likes} launchOffset={props.likesBefore ?? 0} />", "P7b")
+
+    # ---- P8. SuperlikeBarilletDisplay : ne se vide qu'au rythme de SA distribution ----
+    rep(BARILLET,
+        "\n".join([
+            T + "type Props = {",
+            T*2 + "likes: number; // 1 a 6",
+            T + "};",
+        ]),
+        "\n".join([
+            T + "type Props = {",
+            T*2 + "likes: number; // 1 a 6",
+            T*2 + "// Coeurs lances par les Super Like PRECEDENTS du meme tour : ce barillet",
+            T*2 + "// ignore ces lancers-la et ne se vide qu'au rythme de sa distribution.",
+            T*2 + "launchOffset?: number;",
+            T + "};",
+        ]), "P8a")
+    rep(BARILLET,
+        T*2 + "const launched = context.stateGame.superlikeHeartsLaunched;",
+        T*2 + "const launched = context.stateGame.superlikeHeartsLaunched - (props.launchOffset ?? 0);", "P8b")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    # ---- Preuves ----
+    report.append("")
+    report.append("===== PREUVES (attendu >= 1) =====")
+    checks = [
+        (THROW, "tierPassPending"),
+        (THROW, "superlikeHeartsLaunched += 1"),
+        (BOOK, "juste avant le tour special"),
+        (BOOK, "if (!previousTail) stateGame.superlikeHeartsLaunched = 0;"),
+        (OVERLAY, "likesBefore"),
+        (BANNER, "likesBefore"),
+        (BARILLET, "launchOffset"),
+    ]
+    all_ok = not patch_failed
+    for p, needle in checks:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-42s %-55s : %d" % (os.path.basename(p), needle, n))
+        if n < 1:
+            all_ok = False
+    report.append("----- restes (attendu 0) -----")
+    zero_checks = [
+        (THROW, "tierPassToShow"),
+        (THROW, "superlikeHeartsLaunched = index + 1"),
+    ]
+    for p, needle in zero_checks:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-42s %-55s : %d" % (os.path.basename(p), needle, n))
+        if n != 0:
+            all_ok = False
+
+    # ---- Pour le prochain correctif : flash d'annonce a l'achat After Dark ----
+    report.append("")
+    report.append("===== FreeSpinIntro.svelte (pour le flash d'annonce a l'achat) =====")
+    intro = "apps/louvo/src/components/FreeSpinIntro.svelte"
+    if os.path.exists(intro):
+        with open(intro) as f:
+            report.extend("%4d\t%s" % (i + 1, l.rstrip("\n")) for i, l in enumerate(f.readlines()))
+    else:
+        report.append("INTROUVABLE : " + intro)
+    report.append("")
+    report.append("===== qui utilise les images d'annonce =====")
+    try:
+        out = subprocess.run(["grep", "-rn", "speedDatingAnnounce\\|afterDarkAnnounce", "apps/louvo/src"],
+                             capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(aucune occurrence)")
+    except OSError as e:
+        report.append("grep indisponible : %s" % e)
+
+    # ---- git status ----
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    # rapport ecrit AVANT le build : meme si tout s'arrete apres, les preuves sont la
+    with open("rapport24.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    # ---- Build (coupe automatiquement apres 5 min : pas de Ctrl+C a faire) ----
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        tail = log.rstrip().split("\n")[-6:]
+        report.extend(tail)
+        site_ecrit = ("Wrote site to" in log) or ("✔ done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - pnpm ne rendait pas la main, comportement connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - deployez et testez" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport24.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport24.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()

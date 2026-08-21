@@ -5,6 +5,9 @@
 
 	type Props = {
 		likes: number; // 1 a 6
+		// Coeurs lances par les Super Like PRECEDENTS du meme tour : ce barillet
+		// ignore ces lancers-la et ne se vide qu'au rythme de sa distribution.
+		launchOffset?: number;
 	};
 	const props: Props = $props();
 	const context = getContext();
@@ -74,7 +77,7 @@
 	// au lieu d'un minuteur fixe decorrele du vrai depart des coeurs.
 	const vanished = new Set<number>();
 	$effect(() => {
-		const launched = context.stateGame.superlikeHeartsLaunched;
+		const launched = context.stateGame.superlikeHeartsLaunched - (props.launchOffset ?? 0);
 		for (let i = 0; i < Math.min(launched, filledCount); i++) {
 			if (vanished.has(i)) continue;
 			vanished.add(i);

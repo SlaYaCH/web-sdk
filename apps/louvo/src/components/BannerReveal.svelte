@@ -13,6 +13,7 @@
 		duelValues?: [number, number];
 		duelWinner?: number;
 		likes?: number;
+		likesBefore?: number;
 		closeToken?: number;
 		x?: number;
 		y?: number;
@@ -135,6 +136,6 @@
 	{/if}
 
 	{#if props.assetKey === 'superlikeReveal' && props.likes}
-		<SuperlikeBarilletDisplay likes={props.likes} />
+		<SuperlikeBarilletDisplay likes={props.likes} launchOffset={props.likesBefore ?? 0} />
 	{/if}
 </Container>

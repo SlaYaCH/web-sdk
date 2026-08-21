@@ -94,14 +94,15 @@
 
 			context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_multiplier_up', forcePlay: true });
 			// Synchronisation presentoir : le barillet retire son coeur au moment exact du lancer.
-			context.stateGame.superlikeHeartsLaunched = index + 1;
+			context.stateGame.superlikeHeartsLaunched += 1;
 			// After Dark : le presentoir de palier descend d'un coeur par lancer.
 			if (context.stateGame.tier === 'after_dark') {
 				if (context.stateGame.streakTier === 0) context.stateGame.streakTier = 1;
 				context.stateGame.streakLikes += 1;
 				if (context.stateGame.streakLikes >= 6) {
-					// Palier vide : affiche les cartes (DUEL du palier + '+3 free spins').
-					context.stateGame.tierPassToShow = context.stateGame.streakTier;
+					// Palier vide : les cartes ne s'affichent PAS ici (au milieu de la
+					// distribution) mais juste avant le tour special (handler reveal).
+					context.stateGame.tierPassPending = context.stateGame.streakTier;
 					context.stateGame.streakTier += 1;
 					context.stateGame.streakLikes = 0;
 				}
