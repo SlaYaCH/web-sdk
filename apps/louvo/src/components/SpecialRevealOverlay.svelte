@@ -52,6 +52,14 @@
 		},
 		specialRevealShow: async (emitterEvent) => {
 			const id = nextId++;
+			// Une banniere d'un TOUR PRECEDENT encore affichee sur le MEME rouleau :
+			// fermee immediatement, sinon les deux se superposent (vu en Like Storm,
+			// deux Super Like sur la meme colonne a deux spins d'affilee).
+			activeReveals = activeReveals.map((r) =>
+				r.reelIndex === emitterEvent.reelIndex && r.epoch < context.stateGame.bannerEpoch
+					? { ...r, closeToken: r.closeToken + 1 }
+					: r,
+			);
 			await new Promise<void>((resolve) => {
 				const reveal: ActiveReveal = {
 					id,

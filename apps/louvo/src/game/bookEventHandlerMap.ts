@@ -45,6 +45,18 @@ const resetBoardToRandomBase = () => {
 		}
 	}
 };
+// Cartes de palier After Dark en attente : les affiche 2 s, SEULES, avant la
+// suite du tour special. Appelee au premier evenement du tour concerne :
+// updateFreeSpin quand il existe, sinon la premiere banniere (les books
+// montrent des tours speciaux SANS updateFreeSpin). tierPassPending est vide
+// au premier passage : les appels suivants ne font rien.
+const tierPassCardsShow = async () => {
+	if (!stateGame.tierPassPending) return;
+	stateGame.tierPassToShow = stateGame.tierPassPending;
+	stateGame.tierPassPending = 0;
+	// AfterDarkTierPass s'auto-masque au bout de 1800 ms.
+	await new Promise((resolve) => setTimeout(resolve, 2000));
+};
 const animateSymbols = async ({ positions }: { positions: Position[] }) => {
 	eventEmitter.broadcast({ type: 'boardShow' });
 	await eventEmitter.broadcastAsync({
@@ -92,15 +104,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
 			recordBookEvent({ bookEvent });
 		}
-		// Palier After Dark franchi au tour precedent : les deux cartes
-		// s'affichent MAINTENANT, juste avant le tour special, rouleaux a l'arret
-		// - en dehors de toute presentation de gains, aucun chevauchement possible.
-		if (stateGame.tierPassPending) {
-			stateGame.tierPassToShow = stateGame.tierPassPending;
-			stateGame.tierPassPending = 0;
-			// AfterDarkTierPass s'auto-masque au bout de 1800 ms.
-			await new Promise((resolve) => setTimeout(resolve, 1900));
-		}
 		stateGame.gameType = bookEvent.gameType;
 		await stateGameDerived.enhancedBoard.spin({
 			revealEvent: bookEvent,
@@ -113,6 +116,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	// deviner depuis le plateau, ni de risquer qu'un simple WILD déclenche
 	// une bannière par erreur.
 	matchDuelReveal: async (bookEvent: BookEventOfType<'matchDuelReveal'>) => {
+		// Tour special SANS updateFreeSpin (cas observe dans les books) :
+		// les cartes du palier s'affichent AVANT la premiere banniere MATCH.
+		await tierPassCardsShow();
 		// Ne bloque plus la suite de la sequence : la banniere reste affichee
 		// indefiniment (voir SpecialRevealOverlay) et se fermera uniquement au
 		// prochain spin (spinStart -> forceClose), pas sur un minuteur.
@@ -125,6 +131,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
+		// Si un palier attend encore ses cartes, elles passent avant la banniere.
+		await tierPassCardsShow();
 		// Un Super Like d'un TOUR PRECEDENT encore en cours (tour sans gain :
 		// rien d'autre ne l'attendait) : on le laisse finir avant d'empiler le notre.
 		if (stateGame.superlikeAnimationPromise && stateGame.superlikeAnimationEpoch < stateGame.bannerEpoch) {
@@ -247,6 +255,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		eventEmitter.broadcast({ type: 'drawerFold' });
 	},
 	updateFreeSpin: async (bookEvent: BookEventOfType<'updateFreeSpin'>) => {
+		// Palier After Dark franchi au tour precedent : cartes d'abord.
+		await tierPassCardsShow();
 		// Retrigger : le total augmente en cours de bonus -> message '+N FREE SPINS'.
 		if (stateUi.freeSpinCounterTotal && bookEvent.total > stateUi.freeSpinCounterTotal) {
 			stateGame.retriggerToShow = bookEvent.total - stateUi.freeSpinCounterTotal;

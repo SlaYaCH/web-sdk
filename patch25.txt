@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 25 :
+#  (1) cartes de palier affichees AVANT TOUT le tour special
+#      (dans updateFreeSpin : avant les bannieres MATCH, dont les
+#      bookEvents precedent le reveal, et avant les rouleaux)
+#  (2) une banniere d'un tour precedent encore affichee sur le
+#      MEME rouleau est fermee des qu'une nouvelle arrive
+#      (superposition vue en Like Storm, 2 spins d'affilee)
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch25.txt
+#   3) envoyer rapport26.txt
+# Build coupe automatiquement (5 min max), pas de Ctrl+C.
+# ============================================================
+import os
+import subprocess
+import sys
+
+T = "\t"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+BOOK = "apps/louvo/src/game/bookEventHandlerMap.ts"
+OVERLAY = "apps/louvo/src/components/SpecialRevealOverlay.svelte"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    # R1. reveal : retire le flush des cartes (trop tard, les bannieres MATCH
+    #     du tour special sont deja affichees a ce moment-la)
+    rep(BOOK,
+        "\n".join([
+            T*2 + "// Palier After Dark franchi au tour precedent : les deux cartes",
+            T*2 + "// s'affichent MAINTENANT, juste avant le tour special, rouleaux a l'arret",
+            T*2 + "// - en dehors de toute presentation de gains, aucun chevauchement possible.",
+            T*2 + "if (stateGame.tierPassPending) {",
+            T*3 + "stateGame.tierPassToShow = stateGame.tierPassPending;",
+            T*3 + "stateGame.tierPassPending = 0;",
+            T*3 + "// AfterDarkTierPass s'auto-masque au bout de 1800 ms.",
+            T*3 + "await new Promise((resolve) => setTimeout(resolve, 1900));",
+            T*2 + "}",
+            "",
+        ]),
+        "", "R1")
+
+    # R2. updateFreeSpin : PREMIER evenement de chaque tour de free spin -
+    #     les cartes s'affichent ici, avant les bannieres ET les rouleaux
+    rep(BOOK,
+        "\n".join([
+            T + "updateFreeSpin: async (bookEvent: BookEventOfType<'updateFreeSpin'>) => {",
+            T*2 + "// Retrigger : le total augmente en cours de bonus -> message '+N FREE SPINS'.",
+        ]),
+        "\n".join([
+            T + "updateFreeSpin: async (bookEvent: BookEventOfType<'updateFreeSpin'>) => {",
+            T*2 + "// Palier After Dark franchi au tour precedent : les deux cartes",
+            T*2 + "// s'affichent AVANT TOUT le tour special - avant ses bannieres MATCH",
+            T*2 + "// (leurs bookEvents precedent le reveal) et avant le depart des rouleaux.",
+            T*2 + "if (stateGame.tierPassPending) {",
+            T*3 + "stateGame.tierPassToShow = stateGame.tierPassPending;",
+            T*3 + "stateGame.tierPassPending = 0;",
+            T*3 + "// AfterDarkTierPass s'auto-masque au bout de 1800 ms.",
+            T*3 + "await new Promise((resolve) => setTimeout(resolve, 2000));",
+            T*2 + "}",
+            T*2 + "// Retrigger : le total augmente en cours de bonus -> message '+N FREE SPINS'.",
+        ]), "R2")
+
+    # R3. overlay : ferme la banniere d'un tour precedent sur le meme rouleau
+    rep(OVERLAY,
+        "\n".join([
+            T*2 + "specialRevealShow: async (emitterEvent) => {",
+            T*3 + "const id = nextId++;",
+        ]),
+        "\n".join([
+            T*2 + "specialRevealShow: async (emitterEvent) => {",
+            T*3 + "const id = nextId++;",
+            T*3 + "// Une banniere d'un TOUR PRECEDENT encore affichee sur le MEME rouleau :",
+            T*3 + "// fermee immediatement, sinon les deux se superposent (vu en Like Storm,",
+            T*3 + "// deux Super Like sur la meme colonne a deux spins d'affilee).",
+            T*3 + "activeReveals = activeReveals.map((r) =>",
+            T*4 + "r.reelIndex === emitterEvent.reelIndex && r.epoch < context.stateGame.bannerEpoch",
+            T*5 + "? { ...r, closeToken: r.closeToken + 1 }",
+            T*5 + ": r,",
+            T*3 + ");",
+        ]), "R3")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    report.append("")
+    report.append("===== PREUVES (attendu >= 1) =====")
+    checks = [
+        (BOOK, "AVANT TOUT le tour special"),
+        (OVERLAY, "fermee immediatement"),
+    ]
+    all_ok = not patch_failed
+    for p, needle in checks:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-32s %-35s : %d" % (os.path.basename(p), needle, n))
+        if n < 1:
+            all_ok = False
+    report.append("----- restes (attendu 0) -----")
+    for p, needle in [(BOOK, "juste avant le tour special, rouleaux a l'arret")]:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-32s %-35s : %d" % (os.path.basename(p), needle, n))
+        if n != 0:
+            all_ok = False
+    # le flush ne doit exister qu'a UN endroit (updateFreeSpin)
+    with open(BOOK) as f:
+        n = f.read().count("stateGame.tierPassToShow = stateGame.tierPassPending;")
+    report.append("%-32s %-35s : %d (attendu 1)" % ("bookEventHandlerMap.ts", "flush tierPassPending", n))
+    if n != 1:
+        all_ok = False
+
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    with open("rapport26.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        report.extend(log.rstrip().split("\n")[-6:])
+        site_ecrit = ("Wrote site to" in log) or ("done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - pnpm ne rendait pas la main, comportement connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - commit, deploiement, tests" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport26.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport26.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()
