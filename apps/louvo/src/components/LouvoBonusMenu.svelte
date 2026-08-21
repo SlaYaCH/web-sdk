@@ -53,7 +53,6 @@
 		// Les modes "achat" doivent lancer le tour tout de suite (les modes
 		// "activation" attendent que le joueur appuie sur SPIN lui-meme).
 		if (isBuyMode) {
-			console.log('[BUY DEBUG] achat confirme, mode =', stateBet.activeBetModeKey, '- broadcast bet');
 			context.eventEmitter.broadcast({ type: 'bet' });
 		}
 	};

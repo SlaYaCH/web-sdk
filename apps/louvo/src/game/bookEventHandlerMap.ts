@@ -9,8 +9,6 @@ import { stateGame, stateGameDerived } from './stateGame.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
 import config from './config';
-// [BOOK DEBUG] TEMPORAIRE : liste les types d'events d'un book, une fois par book.
-let debugLastBookEvents: unknown = null;
 const freeSpinMusicName = () => (stateGame.tier === 'after_dark' ? 'bgm_after_dark' : 'bgm_speed_dating');
 
 const winLevelSoundsPlay = ({ winLevelData }: { winLevelData: WinLevelData }) => {
@@ -96,10 +94,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			});
 		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
-		if (debugLastBookEvents !== bookEvents) {
-			debugLastBookEvents = bookEvents;
-			console.log('[BOOK DEBUG] types:', bookEvents.map((e) => e.type).join(','));
-		}
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
 			recordBookEvent({ bookEvent });
@@ -142,7 +136,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			]);
 			stateGame.superlikeAnimationPromise = null;
 		}
-		console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));
 		// Deux SUPER LIKE dans le MEME tour : leurs bookEvents arrivent AVANT le
 		// reveal, donc ce handler ne doit JAMAIS bloquer la sequence (sinon les
 		// rouleaux ne partent pas - c'etait le blocage de ~10 s). A la place,

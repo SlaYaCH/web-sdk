@@ -171,7 +171,6 @@
 			// Chacun son tour : la distribution precedente doit avoir fini.
 			await startGate;
 			await new Promise((r) => setTimeout(r, effectiveDelay()));
-			console.log('[SuperLike DEBUG] coeurs affiches:', hearts.length, '- positions cibles:', JSON.stringify(positions));
 			for (let i = 0; i < hearts.length; i++) {
 				try {
 					await flyTo(i);

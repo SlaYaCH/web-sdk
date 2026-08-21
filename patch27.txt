@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 27 (finitions) :
+#  (1) symbole DATE (scatter S) reduit de 20 % sur la grille
+#  (2) retrait des logs de debug ([BOOK DEBUG], [SuperLike DEBUG],
+#      [BUY DEBUG]) - le console.error du catch est conserve
+#  (3) FreeSpinOutro : retrait des 3 Sprite morts (freespins_XX,
+#      winsmall_XX, totalwin.png - images jamais enregistrees,
+#      erreurs console a chaque fin de bonus)
+#  + sonde : localisation du composant du menu reglages
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch27.txt
+#   3) envoyer rapport29.txt
+# Build coupe automatiquement (5 min max), pas de Ctrl+C.
+# ============================================================
+import os
+import re
+import subprocess
+import sys
+
+T = "\t"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+SPRITE = "apps/louvo/src/components/SymbolSprite.svelte"
+BOOK = "apps/louvo/src/game/bookEventHandlerMap.ts"
+THROW = "apps/louvo/src/components/SuperlikeHeartThrow.svelte"
+MENU = "apps/louvo/src/components/LouvoBonusMenu.svelte"
+OUTRO = "apps/louvo/src/components/FreeSpinOutro.svelte"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def rep_re(p, pattern, tag):
+    """Suppression par regex (count=1 exige) - tolere les variations d'indentation."""
+    load(p)
+    rx = re.compile(pattern, re.S)
+    matches = rx.findall(files[p])
+    if len(matches) == 0:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    if len(matches) != 1:
+        raise AssertionError("%s ECHEC : %d occurrences du motif dans %s" % (tag, len(matches), p))
+    files[p] = rx.sub("", files[p], count=1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    # ---- P1. DATE -20% : greffe sur le mecanisme sizeScale existant ----
+    rep(SPRITE,
+        "\n".join([
+            T + "// 2% plus grand en After Dark (cadre plus grand que la base)",
+            T + "const AFTER_DARK_SIZE_SCALE = 1.02;",
+            T + "const sizeScale = $derived(stateGame.tier === 'after_dark' ? AFTER_DARK_SIZE_SCALE : 1);",
+        ]),
+        "\n".join([
+            T + "// 2% plus grand en After Dark (cadre plus grand que la base)",
+            T + "const AFTER_DARK_SIZE_SCALE = 1.02;",
+            T + "// Le symbole DATE (scatter S) est trop grand par rapport aux autres : -20 %.",
+            T + "const DATE_SIZE_SCALE = 0.8;",
+            T + "const sizeScale = $derived(",
+            T*2 + "(stateGame.tier === 'after_dark' ? AFTER_DARK_SIZE_SCALE : 1) *",
+            T*3 + "(props.symbolInfo.assetKey === 'S' ? DATE_SIZE_SCALE : 1),",
+            T + ");",
+        ]), "P1")
+
+    # ---- L1-L5. Logs de debug ----
+    rep(BOOK,
+        "\n".join([
+            "// [BOOK DEBUG] TEMPORAIRE : liste les types d'events d'un book, une fois par book.",
+            "let debugLastBookEvents: unknown = null;",
+            "",
+        ]),
+        "", "L1")
+    rep(BOOK,
+        "\n".join([
+            T*2 + "if (debugLastBookEvents !== bookEvents) {",
+            T*3 + "debugLastBookEvents = bookEvents;",
+            T*3 + "console.log('[BOOK DEBUG] types:', bookEvents.map((e) => e.type).join(','));",
+            T*2 + "}",
+            "",
+        ]),
+        "", "L2")
+    rep(BOOK,
+        T*2 + "console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));\n",
+        "", "L3")
+    rep(THROW,
+        T*3 + "console.log('[SuperLike DEBUG] coeurs affiches:', hearts.length, '- positions cibles:', JSON.stringify(positions));\n",
+        "", "L4")
+    rep(MENU,
+        T*3 + "console.log('[BUY DEBUG] achat confirme, mode =', stateBet.activeBetModeKey, '- broadcast bet');\n",
+        "", "L5")
+
+    # ---- O1-O3. FreeSpinOutro : Sprite morts (regex, tolerant a l'indentation) ----
+    rep_re(OUTRO,
+        r"[\t ]*\{#if isBigWin\}\r?\n.*?\{/if\}\r?\n",
+        "O1")
+    rep_re(OUTRO,
+        r"[\t ]*<Sprite\r?\n[\t ]*anchor=\{\{ x: 0\.5, y: isBigWin \? -3\.2 : -2 \}\}.*?/>\r?\n",
+        "O2")
+    rep_re(OUTRO,
+        r"[\t ]*\{@const isBigWin = winLevelData\.type === 'big'\}\r?\n",
+        "O3")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    report.append("")
+    report.append("===== PREUVES =====")
+    all_ok = not patch_failed
+    checks_min1 = [(SPRITE, "DATE_SIZE_SCALE", 2)]
+    for p, needle, expected in checks_min1:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-28s %-28s : %d (attendu %d)" % (os.path.basename(p), needle, n, expected))
+        if n < expected:
+            all_ok = False
+    report.append("----- restes (attendu 0) -----")
+    zero_checks = [
+        (BOOK, "BOOK DEBUG"),
+        (BOOK, "debugLastBookEvents"),
+        (BOOK, "[SuperLike DEBUG]"),
+        (THROW, "coeurs affiches"),
+        (MENU, "BUY DEBUG"),
+        (OUTRO, "totalwin.png"),
+        (OUTRO, "winsmall_"),
+        (OUTRO, "freespins_"),
+        (OUTRO, "isBigWin"),
+    ]
+    for p, needle in zero_checks:
+        with open(p) as f:
+            n = f.read().count(needle)
+        report.append("%-28s %-28s : %d" % (os.path.basename(p), needle, n))
+        if n != 0:
+            all_ok = False
+
+    # ---- Sonde : ou vit le menu reglages ? ----
+    report.append("")
+    report.append("===== SONDE MENU REGLAGES =====")
+    try:
+        out = subprocess.run(["ls", "-1", "apps/louvo/src/components"], capture_output=True, text=True).stdout
+        report.append("--- composants ---")
+        report.append(out.rstrip())
+        for motif in ["settings", "Turbo", "isTurbo", "musique", "Music", "volume", "RULES", "menuOpen"]:
+            out = subprocess.run(["grep", "-rln", motif, "apps/louvo/src/components", "apps/louvo/src/components_ui"],
+                                 capture_output=True, text=True).stdout
+            report.append("--- fichiers contenant '%s' ---" % motif)
+            report.append(out.rstrip() or "(aucun)")
+    except OSError as e:
+        report.append("sonde impossible : %s" % e)
+
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    with open("rapport29.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        report.extend(log.rstrip().split("\n")[-6:])
+        site_ecrit = ("Wrote site to" in log) or ("done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - comportement pnpm connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - commit, deploiement, tests" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport29.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport29.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()
