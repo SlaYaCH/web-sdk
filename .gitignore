@@ -67,3 +67,5 @@ build_log*.txt
 hang_report*.txt
 run_output*.txt
 etat.txt
+patch_*.py
+patch_*.txt

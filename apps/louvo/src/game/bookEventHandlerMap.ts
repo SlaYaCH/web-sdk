@@ -9,6 +9,8 @@ import { stateGame, stateGameDerived } from './stateGame.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
 import config from './config';
+// [BOOK DEBUG] TEMPORAIRE : liste les types d'events d'un book, une fois par book.
+let debugLastBookEvents: unknown = null;
 const freeSpinMusicName = () => (stateGame.tier === 'after_dark' ? 'bgm_after_dark' : 'bgm_speed_dating');
 
 const winLevelSoundsPlay = ({ winLevelData }: { winLevelData: WinLevelData }) => {
@@ -81,15 +83,11 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 				return keep;
 			});
 		}
-		// Nouveau tour : le suivi des SUPER LIKE du tour precedent repart a zero.
-		stateGame.superlikeThrowDoneThisSpin = false;
-		// Filet : si un palier attendait encore d'etre annonce (tour sans winInfo),
-		// on montre les cartes maintenant plutot que de les perdre.
-		if (stateGame.tierPassPending) {
-			stateGame.tierPassToShow = stateGame.tierPassPending;
-			stateGame.tierPassPending = 0;
-		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
+		if (debugLastBookEvents !== bookEvents) {
+			debugLastBookEvents = bookEvents;
+			console.log('[BOOK DEBUG] types:', bookEvents.map((e) => e.type).join(','));
+		}
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
 			recordBookEvent({ bookEvent });
@@ -118,11 +116,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
-		// Deux SUPER LIKE peuvent tomber dans le MEME tour (deux bookEvents
-		// superlikeReveal d'affilee, meme epoch) : on attend TOUJOURS la fin de la
-		// distribution en cours, sinon les deux series de coeurs partent ensemble.
-		// Garde-fou 12 s : une promesse jamais resolue ne peut pas figer le jeu.
-		if (stateGame.superlikeAnimationPromise) {
+		// Un Super Like d'un TOUR PRECEDENT encore en cours (tour sans gain :
+		// rien d'autre ne l'attendait) : on le laisse finir avant d'empiler le notre.
+		if (stateGame.superlikeAnimationPromise && stateGame.superlikeAnimationEpoch < stateGame.bannerEpoch) {
 			await Promise.race([
 				stateGame.superlikeAnimationPromise,
 				new Promise((resolve) => setTimeout(resolve, 12000)),
@@ -131,10 +127,23 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		}
 		stateGame.superlikeHeartsLaunched = 0;
 		console.log('[SuperLike DEBUG] bookEvent brut:', JSON.stringify(bookEvent));
+		// Deux SUPER LIKE dans le MEME tour : leurs bookEvents arrivent AVANT le
+		// reveal, donc ce handler ne doit JAMAIS bloquer la sequence (sinon les
+		// rouleaux ne partent pas - c'etait le blocage de ~10 s). A la place,
+		// chaque distribution recoit une gate (= fin de la precedente) que le
+		// composant attendra, et la promesse globale devient la CHAINE complete.
+		const previousTail =
+			stateGame.superlikeAnimationEpoch === stateGame.bannerEpoch
+				? stateGame.superlikeAnimationPromise
+				: null;
+		let throwDone!: () => void;
+		const throwPromise = new Promise<void>((resolve) => (throwDone = resolve));
+		stateGame.superlikeStartGates.push(previousTail ?? Promise.resolve());
+		stateGame.superlikeDoneResolvers.push(throwDone);
 		stateGame.superlikeAnimationEpoch = stateGame.bannerEpoch;
-		stateGame.superlikeAnimationPromise = new Promise((resolve) => {
-			stateGame.superlikeAnimationsDone = resolve;
-		});
+		stateGame.superlikeAnimationPromise = previousTail
+			? previousTail.then(() => throwPromise)
+			: throwPromise;
 		// Ne bloque plus la suite de la sequence, meme raison que matchDuelReveal.
 		eventEmitter.broadcast({
 			type: 'specialRevealShow',
@@ -151,7 +160,10 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	winInfo: async (bookEvent: BookEventOfType<'winInfo'>) => {
 		// Attend la fin des lancers de coeurs Super Like avant d'afficher les lignes de gains.
 		if (stateGame.superlikeAnimationPromise) {
-			await stateGame.superlikeAnimationPromise;
+			await Promise.race([
+				stateGame.superlikeAnimationPromise,
+				new Promise((resolve) => setTimeout(resolve, 12000)),
+			]);
 			stateGame.superlikeAnimationPromise = null;
 		}
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_winlevel_small' });
@@ -168,15 +180,28 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			// 120 (apparition) + 700 (maintien) + 150 (ligne disparait) + 300 (attente) + 250 (montant disparait)
 			await new Promise((r) => setTimeout(r, 120 + 700 + 150 + 300 + 250));
 		}
-		// Palier After Dark franchi pendant la distribution des coeurs : les deux
-		// cartes ne s'affichent qu'ICI, apres les gains du tour, jamais au milieu.
-		if (stateGame.tierPassPending) {
-			stateGame.tierPassToShow = stateGame.tierPassPending;
-			stateGame.tierPassPending = 0;
-		}
 	},
 	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {
 		stateBet.winBookEventAmount = bookEvent.amount;
+		// Fin de CHAQUE tour, en base game COMME en free spins (finalWin n'existe
+		// qu'en toute fin de book) : le tour n'est pas fini tant que des coeurs
+		// Super Like volent. Un tour SANS gain n'a pas de winInfo et rien d'autre
+		// ne les attendrait - le spin suivant fermait la banniere en pleine
+		// animation et la colonne de W du book apparaissait (bug turbo).
+		if (stateGame.superlikeAnimationPromise) {
+			await Promise.race([
+				stateGame.superlikeAnimationPromise,
+				new Promise((resolve) => setTimeout(resolve, 12000)),
+			]);
+			stateGame.superlikeAnimationPromise = null;
+		}
+		// Palier After Dark franchi pendant ce tour : les deux cartes s'affichent
+		// MAINTENANT - apres les gains - et restent ~1,9 s avant le tour special.
+		if (stateGame.tierPassPending) {
+			stateGame.tierPassToShow = stateGame.tierPassPending;
+			stateGame.tierPassPending = 0;
+			await new Promise((resolve) => setTimeout(resolve, 1900));
+		}
 	},
 	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
 		stateBetDerived.updateIsTurbo(false, { persistent: true });

@@ -21,20 +21,16 @@
 	// Attente robuste : au lieu de deviner un minuteur, on verifie l'etat
 	// REEL de chaque rouleau (comme pour l'anticipation) - garantit que les
 	// coeurs ne partent JAMAIS pendant qu'un rouleau tourne encore.
-	const waitForAllReelsStopped = async ({ skipStartWait = false } = {}) => {
+	const waitForAllReelsStopped = async () => {
 		// Phase 1 : attend que les rouleaux du TOUR COURANT demarrent (en free
 		// spins, le composant est monte AVANT le depart des rouleaux, encore
 		// "stopped" du tour precedent) - securite 4s si le tour ne demarre pas.
-		// Sautee pour un 2e SUPER LIKE du MEME tour : les rouleaux sont deja
-		// poses et ne repartiront pas, l'attente couterait 4 s pour rien.
-		if (!skipStartWait) {
-			const startWait = performance.now();
-			while (
-				context.stateGame.board.every((reel) => reel.reelState.motion === 'stopped') &&
-				performance.now() - startWait < 4000
-			) {
-				await new Promise((r) => setTimeout(r, 50));
-			}
+		const startWait = performance.now();
+		while (
+			context.stateGame.board.every((reel) => reel.reelState.motion === 'stopped') &&
+			performance.now() - startWait < 4000
+		) {
+			await new Promise((r) => setTimeout(r, 50));
 		}
 		// Phase 2 : attend l'arret complet.
 		while (context.stateGame.board.some((reel) => reel.reelState.motion !== 'stopped')) {
@@ -160,11 +156,19 @@
 	};
 
 	onMount(() => {
+		// File du tour : gate = fin de la distribution precedente du MEME tour
+		// (resolue d'office s'il n'y en a pas), doneResolve = signal de fin de
+		// la notre (la chaine complete est attendue par winInfo/setTotalWin).
+		const startGate = context.stateGame.superlikeStartGates.shift() ?? Promise.resolve();
+		const doneResolve = context.stateGame.superlikeDoneResolvers.shift() ?? (() => {});
+		context.stateGame.superlikeActiveThrows += 1;
 		const wildWatcher = setInterval(maskLandedWilds, 16);
 		(async () => {
 			await waitForAllReelsStopped();
 			clearInterval(wildWatcher);
 			maskLandedWilds();
+			// Chacun son tour : la distribution precedente doit avoir fini.
+			await startGate;
 			await new Promise((r) => setTimeout(r, effectiveDelay()));
 			console.log('[SuperLike DEBUG] coeurs affiches:', hearts.length, '- positions cibles:', JSON.stringify(positions));
 			for (let i = 0; i < hearts.length; i++) {
@@ -174,13 +178,16 @@
 					console.error('[SuperLike DEBUG] lancer du coeur', i, 'echoue :', error);
 				}
 			}
-			// Cale l'affichage sur la verite du Math SDK (debordements compris).
-			if (context.stateGame.tier === 'after_dark') {
+			context.stateGame.superlikeActiveThrows -= 1;
+			// Cale l'affichage sur la verite du Math SDK (debordements compris) -
+			// seulement a la fin de la DERNIERE distribution du tour (les cibles
+			// math decrivent l'etat FINAL du tour, pas l'etat entre deux bannieres).
+			if (context.stateGame.superlikeActiveThrows <= 0 && context.stateGame.tier === 'after_dark') {
 				// Le math compte les paliers TERMINES ; l'affichage vit sur le palier EN COURS (+1).
 				context.stateGame.streakTier = context.stateGame.streakTargetTier + 1;
 				context.stateGame.streakLikes = context.stateGame.streakTargetHearts;
 			}
-			context.stateGame.superlikeAnimationsDone?.();
+			doneResolve();
 		})();
 	});
 </script>

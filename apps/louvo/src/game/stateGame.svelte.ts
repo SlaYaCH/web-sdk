@@ -87,11 +87,15 @@ export const stateGame = $state({
 	streakLikes: 0,
 	activeBannerReelIndexes: [] as number[],
 	superlikeHeartsLaunched: 0,
-	// Vrai des qu'un SUPER LIKE a fini de distribuer ses coeurs dans le tour
-	// courant (remis a false a chaque reveal) : sert au 2e SUPER LIKE du meme tour.
-	superlikeThrowDoneThisSpin: false,
+	// Files d'attente des distributions SUPER LIKE d'un meme tour : chaque
+	// SuperlikeHeartThrow prend sa gate de depart (= fin de la distribution
+	// precedente) et son resolveur de fin - les coeurs partent l'un apres l'autre.
+	superlikeStartGates: [] as Array<Promise<void>>,
+	superlikeDoneResolvers: [] as Array<() => void>,
+	// Nombre de distributions encore en vol pour le tour courant.
+	superlikeActiveThrows: 0,
 	// Palier After Dark franchi pendant la distribution : les cartes ne sont
-	// annoncees qu'a la FIN du tour (voir winInfo), jamais au milieu des coeurs.
+	// annoncees qu'a la FIN du tour (voir setTotalWin), jamais au milieu des coeurs.
 	tierPassPending: 0,
 	bannerEpoch: 0,
 	streakTargetTier: 0,
