@@ -21,16 +21,20 @@
 	// Attente robuste : au lieu de deviner un minuteur, on verifie l'etat
 	// REEL de chaque rouleau (comme pour l'anticipation) - garantit que les
 	// coeurs ne partent JAMAIS pendant qu'un rouleau tourne encore.
-	const waitForAllReelsStopped = async () => {
+	const waitForAllReelsStopped = async ({ skipStartWait = false } = {}) => {
 		// Phase 1 : attend que les rouleaux du TOUR COURANT demarrent (en free
 		// spins, le composant est monte AVANT le depart des rouleaux, encore
 		// "stopped" du tour precedent) - securite 4s si le tour ne demarre pas.
-		const startWait = performance.now();
-		while (
-			context.stateGame.board.every((reel) => reel.reelState.motion === 'stopped') &&
-			performance.now() - startWait < 4000
-		) {
-			await new Promise((r) => setTimeout(r, 50));
+		// Sautee pour un 2e SUPER LIKE du MEME tour : les rouleaux sont deja
+		// poses et ne repartiront pas, l'attente couterait 4 s pour rien.
+		if (!skipStartWait) {
+			const startWait = performance.now();
+			while (
+				context.stateGame.board.every((reel) => reel.reelState.motion === 'stopped') &&
+				performance.now() - startWait < 4000
+			) {
+				await new Promise((r) => setTimeout(r, 50));
+			}
 		}
 		// Phase 2 : attend l'arret complet.
 		while (context.stateGame.board.some((reel) => reel.reelState.motion !== 'stopped')) {

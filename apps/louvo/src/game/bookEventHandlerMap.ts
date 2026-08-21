@@ -32,6 +32,17 @@ const winLevelSoundsStop = () => {
 	}
 	eventEmitter.broadcastAsync({ type: 'uiShow' });
 };
+// Retour en base game : on repose une grille de base ALEATOIRE (aucun W, M, K
+// ou S) pour ne jamais rester sur la derniere grille After Dark.
+const BASE_RANDOM_SYMBOLS = ['L1', 'L2', 'L3', 'L4', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'] as const;
+const resetBoardToRandomBase = () => {
+	for (const reel of stateGame.board) {
+		for (const reelSymbol of reel.reelState.symbols) {
+			const name = BASE_RANDOM_SYMBOLS[Math.floor(Math.random() * BASE_RANDOM_SYMBOLS.length)];
+			reelSymbol.rawSymbol = { name };
+		}
+	}
+};
 const animateSymbols = async ({ positions }: { positions: Position[] }) => {
 	eventEmitter.broadcast({ type: 'boardShow' });
 	await eventEmitter.broadcastAsync({
@@ -70,6 +81,14 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 				return keep;
 			});
 		}
+		// Nouveau tour : le suivi des SUPER LIKE du tour precedent repart a zero.
+		stateGame.superlikeThrowDoneThisSpin = false;
+		// Filet : si un palier attendait encore d'etre annonce (tour sans winInfo),
+		// on montre les cartes maintenant plutot que de les perdre.
+		if (stateGame.tierPassPending) {
+			stateGame.tierPassToShow = stateGame.tierPassPending;
+			stateGame.tierPassPending = 0;
+		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
@@ -99,11 +118,15 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		});
 	},
 	superlikeReveal: async (bookEvent: BookEventOfType<'superlikeReveal'>) => {
-		// Attend la fin des lancers d'un Super Like PRECEDENT avant d'en demarrer
-		// un autre - sinon sa promesse serait ecrasee ici et le garde du reveal
-		// ne pourrait plus l'attendre : deux distributions se chevaucheraient.
-		if (stateGame.superlikeAnimationPromise && stateGame.superlikeAnimationEpoch < stateGame.bannerEpoch) {
-			await stateGame.superlikeAnimationPromise;
+		// Deux SUPER LIKE peuvent tomber dans le MEME tour (deux bookEvents
+		// superlikeReveal d'affilee, meme epoch) : on attend TOUJOURS la fin de la
+		// distribution en cours, sinon les deux series de coeurs partent ensemble.
+		// Garde-fou 12 s : une promesse jamais resolue ne peut pas figer le jeu.
+		if (stateGame.superlikeAnimationPromise) {
+			await Promise.race([
+				stateGame.superlikeAnimationPromise,
+				new Promise((resolve) => setTimeout(resolve, 12000)),
+			]);
 			stateGame.superlikeAnimationPromise = null;
 		}
 		stateGame.superlikeHeartsLaunched = 0;
@@ -144,6 +167,12 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			// Duree totale de l'animation d'une ligne (voir WinLineReveal.svelte) :
 			// 120 (apparition) + 700 (maintien) + 150 (ligne disparait) + 300 (attente) + 250 (montant disparait)
 			await new Promise((r) => setTimeout(r, 120 + 700 + 150 + 300 + 250));
+		}
+		// Palier After Dark franchi pendant la distribution des coeurs : les deux
+		// cartes ne s'affichent qu'ICI, apres les gains du tour, jamais au milieu.
+		if (stateGame.tierPassPending) {
+			stateGame.tierPassToShow = stateGame.tierPassPending;
+			stateGame.tierPassPending = 0;
 		}
 	},
 	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {
@@ -202,13 +231,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		stateUi.freeSpinCounterTotal = bookEvent.total;
 	},
 	freeSpinEnd: async (bookEvent: BookEventOfType<'freeSpinEnd'>) => {
-		// Ferme toutes les bannieres restantes (Super Like/MATCH) en sortant du bonus.
-		stateGame.bannerEpoch += 2;
 		const winLevelData = winLevelMap[bookEvent.winLevel as WinLevel];
 		await eventEmitter.broadcastAsync({ type: 'uiHide' });
-		stateGame.gameType = 'basegame';
-		stateGame.tier = 'basegame';
-		eventEmitter.broadcast({ type: 'boardFrameGlowHide' });
 		eventEmitter.broadcast({ type: 'freeSpinOutroShow' });
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_youwon_panel' });
 		winLevelSoundsPlay({ winLevelData });
@@ -222,6 +246,17 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		eventEmitter.broadcast({ type: 'freeSpinCounterHide' });
 		stateUi.freeSpinCounterShow = false;
 		await eventEmitter.broadcastAsync({ type: 'transition' });
+		// TAP TO CONTINUE fait + transition qui couvre l'ecran : c'est SEULEMENT ici
+		// qu'on quitte le decor After Dark et qu'on ferme les dernieres affiches
+		// (sinon on apercoit la grille de base pendant le decompte du gain).
+		stateGame.bannerEpoch += 2;
+		stateGame.gameType = 'basegame';
+		stateGame.tier = 'basegame';
+		// Le plateau garderait sinon la derniere grille After Dark (colonne de W) :
+		// on repose une grille de base aleatoire pendant que la transition couvre.
+		resetBoardToRandomBase();
+		stateGame.tierPassPending = 0;
+		eventEmitter.broadcast({ type: 'boardFrameGlowHide' });
 		await eventEmitter.broadcastAsync({ type: 'uiShow' });
 		await eventEmitter.broadcastAsync({ type: 'drawerUnfold' });
 		eventEmitter.broadcast({ type: 'drawerButtonHide' });

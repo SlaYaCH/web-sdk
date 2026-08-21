@@ -62,3 +62,8 @@ diag.txt
 erreur.txt
 etat.txt
 console.txt
+rapport*.txt
+build_log*.txt
+hang_report*.txt
+run_output*.txt
+etat.txt

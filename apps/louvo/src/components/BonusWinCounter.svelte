@@ -11,12 +11,12 @@
 	const context = getContext();
 
 	const panelSizes = $derived({
-		width: SYMBOL_SIZE * 1.9,
+		width: SYMBOL_SIZE * 1.53,
 		height: SYMBOL_SIZE * 0.61,
 	});
-	// A droite du compteur de free spins (lui-meme decale a gauche du centre).
+	// Miroir exact du compteur de free spins, a droite du centre de la grille.
 	const position = $derived({
-		x: context.stateGameDerived.boardLayout().x + SYMBOL_SIZE * 1.0,
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 + SYMBOL_SIZE * 1.0,
 		y:
 			context.stateGameDerived.boardLayout().y +
 			context.stateGameDerived.boardLayout().height * 0.5 +
