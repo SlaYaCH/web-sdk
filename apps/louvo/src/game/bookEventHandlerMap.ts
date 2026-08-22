@@ -98,6 +98,14 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
 			recordBookEvent({ bookEvent });
 		}
+		// Turbo et super turbo DESACTIVES pendant les bonus : aucun interet en
+		// free spins (le joueur ne clique pas) et source de bugs visuels. Un
+		// reglage reactive via le menu en cours de bonus est coupe ici, a
+		// CHAQUE tour (l'entree de bonus le coupait deja dans freeSpinTrigger).
+		if (bookEvent.gameType === 'freegame') {
+			stateBetDerived.updateIsTurbo(false, { persistent: true });
+			stateBet.isSuperTurbo = false;
+		}
 		stateGame.gameType = bookEvent.gameType;
 		await stateGameDerived.enhancedBoard.spin({
 			revealEvent: bookEvent,
