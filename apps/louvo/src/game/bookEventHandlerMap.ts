@@ -187,6 +187,9 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			stateGame.superlikeAnimationPromise = null;
 		}
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_winlevel_small' });
+		// Instant de depart de la presentation des lignes : sert plus bas a ne
+		// completer que le temps qui manque VRAIMENT a la fin.
+		const winLinesStartedAt = performance.now();
 		if (bookEvent.wins.length > 0) {
 			// Affichee tout de suite (pas apres la surbrillance des symboles),
 			// directement quand le 5eme rouleau vient de s'arreter.
@@ -196,9 +199,29 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			await animateSymbols({ positions: win.positions });
 		});
 		if (bookEvent.wins.length > 0) {
-			// Duree totale de l'animation d'une ligne (voir WinLineReveal.svelte) :
-			// 120 (apparition) + 700 (maintien) + 150 (ligne disparait) + 300 (attente) + 250 (montant disparait)
-			await new Promise((r) => setTimeout(r, 120 + 700 + 150 + 300 + 250));
+			// Duree d'UNE ligne (voir WinLineReveal.svelte) : 120 (apparition)
+			// + 700 (maintien) + 150 (ligne disparait) + 300 (attente) + 250 (montant
+			// disparait). Les lignes s'enchainent avec WIN_LINE_STAGGER d'ecart : la
+			// presentation complete dure donc plus longtemps des qu'il y en a
+			// plusieurs. L'attente etait FIXE (une seule ligne) : en turbo/super turbo,
+			// ou la surbrillance des symboles est quasi instantanee et n'absorbe plus
+			// le retard, le tour suivant partait par-dessus l'animation inachevee.
+			// Valeurs verifiees dans le code : WinLineReveal = 120 + 700 + 150 + 300
+			// + 250 par ligne, WinLinesDisplay = 200 ms entre deux lignes. La derniere
+			// ligne se termine donc WIN_LINE_STAGGER x (nb lignes - 1) apres la
+			// premiere. Les lignes ayant demarre AVANT la surbrillance des symboles,
+			// celle-ci absorbe deja une partie de ce decalage : on garde la pause
+			// d'origine et on ne rajoute QUE le manque. Vitesse normale : attente
+			// inchangee. Turbo/super turbo (surbrillance quasi instantanee) : allongee
+			// juste assez pour que la derniere ligne finisse avant le tour suivant.
+			const WIN_LINE_DURATION = 120 + 700 + 150 + 300 + 250;
+			const WIN_LINE_STAGGER = 200;
+			const winLinesElapsed = performance.now() - winLinesStartedAt;
+			const staggerLeft = Math.max(
+				0,
+				WIN_LINE_STAGGER * (bookEvent.wins.length - 1) - winLinesElapsed,
+			);
+			await new Promise((r) => setTimeout(r, WIN_LINE_DURATION + staggerLeft));
 		}
 	},
 	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {
