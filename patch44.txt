@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 44 : responsive du menu bonus (dernier panneau)
+#
+# Mesures relevees dans LouvoBonusMenu.svelte :
+#   - ecran de selection : 5 cartes de 170 espacees de 16, posees de
+#     x=-372 a x=+372, ancre 0.5 -> largeur totale 914, hauteur 255
+#   - ecran de confirmation : 320 x 374
+# On prend l'enveloppe des deux : 914 x 374.
+#
+# Meme facteur plafonne a 1 que les autres panneaux : AUCUN CHANGEMENT
+# SUR DESKTOP.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch44.txt
+#   3) envoyer rapport50.txt
+# ============================================================
+import os
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport50.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def main():
+    g = "apps/louvo/src/components/Game.svelte"
+    with open(g, encoding="utf-8") as f:
+        txt = f.read()
+
+    say("===== 1. Game.svelte : echelle du menu bonus =====")
+    old = "\t\t\t>\n\t\t\t\t<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />"
+    new = ("\t\t\t\tscale={overlayScale(914, 374)}\n"
+           "\t\t\t>\n\t\t\t\t<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />")
+
+    if "overlayScale(914, 374)" in txt:
+        say("  deja applique")
+    else:
+        if "overlayScale" not in txt:
+            raise AssertionError("overlayScale absent de Game.svelte - lancez d'abord patch43.txt")
+        n = txt.count(old)
+        if n != 1:
+            raise AssertionError("motif trouve %d fois (attendu 1)" % n)
+        with open(g, "w", encoding="utf-8") as f:
+            f.write(txt.replace(old, new, 1))
+        say("  echelle appliquee au menu bonus")
+
+    say("")
+    say("===== 2. VERIFICATION : les 4 panneaux =====")
+    apres = open(g, encoding="utf-8").read()
+    tout_ok = True
+    for motif, quoi in (("overlayScale(380, 650)", "menu de reglages"),
+                        ("overlayScale(980, 640)", "panneau History"),
+                        ("overlayScale(914, 374)", "menu bonus")):
+        present = motif in apres
+        if not present:
+            tout_ok = False
+        say("  %-28s %-22s %s" % (motif, quoi, "OK" if present else "*** ABSENT ***"))
+    for chemin in ("apps/louvo/src/components/LouvoBottomBar.svelte",
+                   "apps/louvo/src/components/LouvoReplayBar.svelte"):
+        present = "scale={barScale}" in open(chemin, encoding="utf-8").read()
+        if not present:
+            tout_ok = False
+        say("  %-28s %-22s %s" % ("scale={barScale}", os.path.basename(chemin).replace(".svelte", ""),
+                                  "OK" if present else "*** ABSENT ***"))
+
+    say("")
+    say("===== 3. RECAPITULATIF DES LOTS 40 A 44 =====")
+    controles = (
+        ("apps/louvo/src/app.html", "typekit", False, "Typekit retire du HTML"),
+        ("packages/pixi-svelte/src/lib/utils.svelte.ts", "WebFont", False, "WebFont retire"),
+        ("apps/louvo/src/components/Game.svelte", "isReplayMode", True, "mode replay"),
+        ("apps/louvo/src/components/LouvoReplayBar.svelte", "REPLAY AGAIN", True, "barre de replay"),
+        ("apps/louvo/src/game/stateHistory.svelte.ts", "recordRound", True, "magasin History"),
+        ("apps/louvo/src/components/LouvoHistoryPanel.svelte", "ROUND ID", True, "panneau History"),
+        ("apps/louvo/src/game/actor.ts", "recordRound(bet)", True, "enregistrement des tours"),
+        ("apps/louvo/src/components/LouvoSettingsMenu.svelte", "'HISTORY'", True, "ligne du menu"),
+    )
+    for chemin, motif, attendu, quoi in controles:
+        if not os.path.exists(chemin):
+            say("  %-34s FICHIER ABSENT" % quoi)
+            tout_ok = False
+            continue
+        present = motif in open(chemin, encoding="utf-8").read()
+        if present != attendu:
+            tout_ok = False
+        say("  %-34s %s" % (quoi, "OK" if present == attendu else "*** ECHEC ***"))
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - lancez le build, testez, puis commit" if ok else "ECHEC - envoyez rapport50.txt"))
+print("")
+print("FINI - envoyez rapport50.txt")

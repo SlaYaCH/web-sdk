@@ -9,6 +9,7 @@ import type { EmitterEventSound } from '../components/Sound.svelte';
 import type { EmitterEventTransition } from '../components/Transition.svelte';
 
 export type EmitterEventSpin = { type: 'spinStart' };
+export type EmitterEventHistory = { type: 'historyShow' };
 
 export type EmitterEventGame =
 	| EmitterEventBoard
@@ -20,4 +21,5 @@ export type EmitterEventGame =
 	| EmitterEventSpecialReveal
 	| EmitterEventSound
 	| EmitterEventTransition
-	| EmitterEventSpin;
+	| EmitterEventSpin
+	| EmitterEventHistory;

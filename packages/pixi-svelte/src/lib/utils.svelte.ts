@@ -1,5 +1,3 @@
-import WebFont from 'webfontloader';
-
 import type { PixiPoint, Sizes } from './types';
 
 export const REM = 16;
@@ -58,26 +56,12 @@ export function detectWebGL() {
 	return -1;
 }
 
-export const preloadFont = () =>
-	new Promise<void>((resolve) => {
-		try {
-			WebFont.load({
-				typekit: {
-					id: 'aba0ebl',
-				},
-				active: () => {
-					resolve();
-				},
-				inactive: () => {
-					console.error('Web font load inactive');
-					resolve();
-				},
-			});
-		} catch (error) {
-			console.error(error);
-			resolve();
-		}
-	});
+// Typekit est bloque par la Content Security Policy de Stake :
+// la police n'a jamais pu se charger et le jeu tourne sur la police
+// de repli. On ne tente plus la requete, ce qui supprime les erreurs
+// 'violates the following Content Security Policy' et 'Web font load
+// inactive' a chaque lancement.
+export const preloadFont = () => Promise.resolve();
 
 export function propsSyncEffect<TProps extends object, TTarget>({
 	props,

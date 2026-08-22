@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 40 : MODE REPLAY OFFICIEL STAKE + nettoyage Typekit
+#
+# 1) app.html : retire le <link> Typekit bloque par la CSP de Stake
+#    (la police proxima-nova ne se chargeait deja pas : aucun
+#     changement visuel, seulement 2 erreurs de moins en console)
+#
+# 2) Game.svelte : quand stateUi.config.mode vaut 'replay' (pose par
+#    Authenticate.svelte des que l'URL porte replay=true), Louvo
+#    affiche LouvoReplayBar au lieu de LouvoBottomBar.
+#    => plus de SPIN, plus de stepper de mise, plus d'autoplay,
+#       plus de BONUS, plus de barre espace. Aucune vraie mise
+#       n'est possible pendant un replay.
+#
+# 3) Nouveau composant LouvoReplayBar.svelte : mise, gain,
+#    multiplicateur, REPLAY AGAIN, MENU, et message clair si
+#    l'Event ID est invalide.
+#
+# EN JEU NORMAL CE PATCH NE CHANGE RIEN : si mode ne vaut jamais
+# 'replay', la barre habituelle s'affiche exactement comme avant.
+#
+# Le rapport est ecrit APRES CHAQUE LIGNE. AUCUN BUILD n'est lance.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch40.txt
+#   3) envoyer rapport45.txt
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport45.txt"
+report = []
+files = {}
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def load(p):
+    if p not in files:
+        with open(p, "r", encoding="utf-8") as f:
+            files[p] = f.read()
+    return files[p]
+
+
+def save_all():
+    for p, content in files.items():
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(content)
+
+
+def rep(p, old, new, tag):
+    """Remplacement exact, idempotent, une seule occurrence exigee."""
+    txt = load(p)
+    if new in txt:
+        say("  %-46s deja applique" % tag)
+        return
+    n = txt.count(old)
+    if n != 1:
+        raise AssertionError("%s : motif trouve %d fois (attendu 1) dans %s" % (tag, n, p))
+    files[p] = txt.replace(old, new, 1)
+    say("  %-46s OK" % tag)
+
+
+COMPOSANT = '''<script lang="ts">
+	import { onMount } from 'svelte';
+	import { Container, Rectangle, Text } from 'pixi-svelte';
+	import { stateBet, stateUi } from 'state-shared';
+	import { API_AMOUNT_MULTIPLIER } from 'constants-shared/bet';
+	import { numberToCurrencyString } from 'utils-shared/amount';
+
+	import { getContext } from '../game/context';
+
+	const context = getContext();
+
+	const BAR_WIDTH = 1300;
+	const BAR_HEIGHT = 150;
+
+	const LABEL = {
+		fontFamily: 'proxima-nova',
+		fontWeight: '600',
+		fontSize: 18,
+		fill: 0xff8fb3,
+	} as const;
+	const VALUE = {
+		fontFamily: 'proxima-nova',
+		fontWeight: '700',
+		fontSize: 30,
+		fill: 0xffffff,
+	} as const;
+	const BUTTON = {
+		fontFamily: 'proxima-nova',
+		fontWeight: '700',
+		fontSize: 22,
+		fill: 0xffffff,
+	} as const;
+
+	// ------------------------------------------------------------------
+	// Les donnees du replay arrivent dans stateBet.betToResume, pose par
+	// Authenticate.svelte apres GET /bet/replay/{game}/{version}/{mode}/{event}.
+	// ResumeBet.svelte les consomme ensuite, donc on les capture des qu'elles
+	// apparaissent au lieu de lire betToResume en continu.
+	// ------------------------------------------------------------------
+	type ReplayRound = {
+		amount?: number;
+		payout?: number;
+		payoutMultiplier?: number;
+	};
+
+	let seenRound = $state(false);
+	let payout = $state<number | null>(null);
+	let payoutMultiplier = $state<number | null>(null);
+	let timedOut = $state(false);
+
+	$effect(() => {
+		const round = stateBet.betToResume as unknown as ReplayRound | null;
+		if (!round || seenRound) return;
+		seenRound = true;
+		if (typeof round.payout === 'number') payout = round.payout;
+		if (typeof round.payoutMultiplier === 'number') payoutMultiplier = round.payoutMultiplier;
+	});
+
+	// Event ID invalide : le RGS ne renvoie pas de round, on le dit clairement
+	// au lieu de laisser un ecran fige.
+	onMount(() => {
+		const timer = setTimeout(() => {
+			if (!seenRound) timedOut = true;
+		}, 6000);
+		return () => clearTimeout(timer);
+	});
+
+	const betText = $derived(numberToCurrencyString(stateBet.betAmount));
+	const winText = $derived(
+		payout === null ? '-' : numberToCurrencyString(payout / API_AMOUNT_MULTIPLIER),
+	);
+	const multiplierText = $derived.by(() => {
+		if (payoutMultiplier !== null) return `${payoutMultiplier.toFixed(2)}x`;
+		if (payout !== null && stateBet.betAmount > 0)
+			return `${(payout / API_AMOUNT_MULTIPLIER / stateBet.betAmount).toFixed(2)}x`;
+		return '-';
+	});
+
+	// Rejouer le meme event : on recharge l'URL telle quelle, elle contient
+	// deja replay=true et l'event. Aucune mise n'est envoyee.
+	const onReplayAgain = () => {
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		if (typeof window !== 'undefined') window.location.reload();
+	};
+
+	const onMenu = () => {
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		stateUi.menuOpen = true;
+	};
+
+	const COL_MENU = -BAR_WIDTH * 0.5 + 110;
+	const COL_BET = -BAR_WIDTH * 0.5 + 330;
+	const COL_WIN = -BAR_WIDTH * 0.5 + 560;
+	const COL_MULT = -BAR_WIDTH * 0.5 + 790;
+	const COL_BUTTON = BAR_WIDTH * 0.5 - 190;
+</script>
+
+<Container x={0} y={-BAR_HEIGHT * 0.5}>
+	<Rectangle
+		anchor={0.5}
+		width={BAR_WIDTH}
+		height={BAR_HEIGHT}
+		backgroundColor={0x1a0a14}
+		borderColor={0xff2d6a}
+		borderWidth={4}
+	/>
+
+	<!-- Bandeau : on est en relecture, pas en jeu -->
+	<Text
+		x={-BAR_WIDTH * 0.5 + 110}
+		y={-BAR_HEIGHT * 0.5 + 26}
+		anchor={0.5}
+		text="REPLAY"
+		style={{ fontFamily: 'proxima-nova', fontWeight: '700', fontSize: 20, fill: 0xff2d6a }}
+	/>
+
+	{#if timedOut}
+		<Text
+			anchor={0.5}
+			text="REPLAY UNAVAILABLE - CHECK THE EVENT ID"
+			style={{ fontFamily: 'proxima-nova', fontWeight: '700', fontSize: 26, fill: 0xff2d6a }}
+		/>
+	{:else}
+		<!-- MENU -->
+		<Container x={COL_MENU} y={22} eventMode="static" cursor="pointer" onpointerup={onMenu}>
+			<Rectangle
+				anchor={0.5}
+				width={150}
+				height={52}
+				backgroundColor={0x330018}
+				borderColor={0xff2d6a}
+				borderWidth={2}
+			/>
+			<Text anchor={0.5} text="MENU" style={BUTTON} />
+		</Container>
+
+		<!-- BET -->
+		<Text x={COL_BET} y={-18} anchor={0.5} text="BET" style={LABEL} />
+		<Text x={COL_BET} y={20} anchor={0.5} text={betText} style={VALUE} />
+
+		<!-- WIN -->
+		<Text x={COL_WIN} y={-18} anchor={0.5} text="WIN" style={LABEL} />
+		<Text x={COL_WIN} y={20} anchor={0.5} text={winText} style={VALUE} />
+
+		<!-- MULTIPLIER -->
+		<Text x={COL_MULT} y={-18} anchor={0.5} text="MULTIPLIER" style={LABEL} />
+		<Text x={COL_MULT} y={20} anchor={0.5} text={multiplierText} style={VALUE} />
+
+		<!-- REPLAY AGAIN -->
+		<Container x={COL_BUTTON} eventMode="static" cursor="pointer" onpointerup={onReplayAgain}>
+			<Rectangle
+				anchor={0.5}
+				width={280}
+				height={62}
+				backgroundColor={0x330018}
+				borderColor={0xff2d6a}
+				borderWidth={2}
+			/>
+			<Text anchor={0.5} text="REPLAY AGAIN" style={BUTTON} />
+		</Container>
+	{/if}
+</Container>
+'''
+
+def main():
+    say("===== 1. app.html : retrait de Typekit =====")
+    p = "apps/louvo/src/app.html"
+    txt = load(p)
+    if "typekit" not in txt:
+        say("  deja retire")
+    else:
+        nouveau = re.sub(r"[ \t]*<link[^>]*use\.typekit\.net[^>]*>[ \t]*\r?\n", "", txt)
+        if nouveau == txt:
+            raise AssertionError("le <link> Typekit n'a pas pu etre isole dans app.html")
+        files[p] = nouveau
+        say("  <link> Typekit retire")
+
+    say("")
+    say("===== 2. LouvoReplayBar.svelte =====")
+    cible = "apps/louvo/src/components/LouvoReplayBar.svelte"
+    if os.path.exists(cible) and open(cible, encoding="utf-8").read() == COMPOSANT:
+        say("  deja en place, identique")
+    else:
+        with open(cible, "w", encoding="utf-8") as f:
+            f.write(COMPOSANT)
+        say("  ecrit (%d lignes)" % len(COMPOSANT.split("\n")))
+
+    say("")
+    say("===== 3. Game.svelte : bascule en mode replay =====")
+    g = "apps/louvo/src/components/Game.svelte"
+    load(g)
+
+    rep(g,
+        "\timport LouvoBonusMenu from './LouvoBonusMenu.svelte';",
+        "\timport LouvoBonusMenu from './LouvoBonusMenu.svelte';\n"
+        "\timport LouvoReplayBar from './LouvoReplayBar.svelte';",
+        "import LouvoReplayBar")
+
+    rep(g,
+        "\tconst context = getContext();",
+        "\tconst context = getContext();\n\n"
+        "\t// Mode replay officiel Stake : l'URL porte replay=true, Authenticate.svelte\n"
+        "\t// a deja pose stateUi.config.mode = 'replay' et appele /bet/replay/...\n"
+        "\t// Aucune vraie mise ne doit etre possible dans ce mode.\n"
+        "\tconst isReplayMode = $derived(stateUi.config.mode === 'replay');",
+        "const isReplayMode")
+
+    rep(g,
+        "<LouvoBottomBar />",
+        "{#if isReplayMode}<LouvoReplayBar />{:else}<LouvoBottomBar />{/if}",
+        "bascule de la barre du bas")
+
+    save_all()
+
+    say("")
+    say("===== 4. VERIFICATION =====")
+    for chemin, motif, attendu in (
+        ("apps/louvo/src/app.html", "typekit", False),
+        ("apps/louvo/src/components/Game.svelte", "isReplayMode", True),
+        ("apps/louvo/src/components/Game.svelte", "LouvoReplayBar", True),
+        ("apps/louvo/src/components/LouvoReplayBar.svelte", "REPLAY AGAIN", True),
+    ):
+        present = motif in open(chemin, encoding="utf-8").read()
+        etat = "OK" if present == attendu else "*** ECHEC ***"
+        say("  %-52s %-8s %s" % (os.path.basename(chemin) + " : " + motif,
+                                 "present" if present else "absent", etat))
+
+    # ---------- 5. Fichiers a lire pour le lot suivant (History) ----------
+    say("")
+    say("===== 5. FICHIERS POUR LE PROCHAIN LOT (lecture seule) =====")
+    for chemin in ("apps/louvo/src/routes/+layout.svelte",
+                   "apps/louvo/src/components/ResumeBet.svelte",
+                   "packages/pixi-svelte/src/lib/utils.svelte.ts"):
+        say("")
+        say("--------------------------------------------------------------")
+        if not os.path.exists(chemin):
+            say(">>> INTROUVABLE : %s" % chemin)
+            continue
+        say(">>> %s" % chemin)
+        say("--------------------------------------------------------------")
+        for i, l in enumerate(open(chemin, encoding="utf-8").read().split("\n")[:120], 1):
+            say("%4d| %s" % (i, l))
+
+    say("")
+    say("--- ou requestBet / le resultat du /wallet/play sont utilises ---")
+    for base in ("packages", "apps/louvo/src"):
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames
+                           if d not in ("node_modules", "dist", ".turbo", "build", ".svelte-kit")]
+            for fn in filenames:
+                if not fn.endswith((".ts", ".svelte")):
+                    continue
+                fp = os.path.join(dirpath, fn)
+                try:
+                    contenu = open(fp, encoding="utf-8", errors="ignore").read()
+                except OSError:
+                    continue
+                for i, l in enumerate(contenu.split("\n"), 1):
+                    if re.search(r"requestBet|betID|wallet/play|roundID", l):
+                        say("%s:%d: %s" % (fp, i, l.strip()[:150]))
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - lancez le build puis testez" if ok else "ECHEC - envoyez rapport45.txt"))
+print("")
+print("FINI - envoyez rapport45.txt")

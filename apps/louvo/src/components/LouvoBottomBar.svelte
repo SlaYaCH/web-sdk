@@ -18,6 +18,13 @@
 	const BAR_HEIGHT = 240;
 	const ROW_Y = BAR_HEIGHT * 0.511 - BAR_HEIGHT / 2;
 
+	// En portrait la mise en page standard ne fait que 1080 de large :
+	// une barre de 1300 serait coupee des deux cotes. Plafonne a 1, donc
+	// aucun changement sur desktop (1920 de large).
+	const barScale = $derived(
+		Math.min(1, (context.stateLayoutDerived.mainLayoutStandard().width - 40) / BAR_WIDTH),
+	);
+
 	const BONUS_X = -BAR_WIDTH / 2 - 45; // juste a gauche de la barre, reste dans le cadre visible
 	const MENU_X = BAR_WIDTH * 0.116 - BAR_WIDTH / 2;
 	const BALANCE_X = BAR_WIDTH * 0.331 - BAR_WIDTH / 2;
@@ -127,7 +134,7 @@
 	};
 </script>
 
-<Container x={0} y={-BAR_HEIGHT * 0.5}>
+<Container x={0} y={-BAR_HEIGHT * 0.5 * barScale} scale={barScale}>
 	<Sprite key="uiBottomBar" anchor={0.5} width={BAR_WIDTH} height={BAR_HEIGHT} />
 
 	<!-- Bonus -->

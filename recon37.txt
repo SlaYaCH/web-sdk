@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 37 : RECONNAISSANCE (LECTURE SEULE)
+#
+# Ce script NE MODIFIE RIEN. Il lit le code et ecrit un rapport
+# pour que Claude puisse ecrire les deux patchs suivants
+# (History/replay dans le menu, puis responsive) sans deviner
+# une seule ligne ni une seule indentation.
+#
+# Le rapport est ecrit APRES CHAQUE SECTION : meme si le
+# terminal coupe, rapport43.txt contient ce qui a ete lu.
+# AUCUN BUILD n'est lance.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 recon37.txt
+#   3) envoyer rapport43.txt
+# ============================================================
+import os
+import re
+import subprocess
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport43.txt"
+APP = "apps/louvo/src"
+IGNORE = ("node_modules", ".git", "build", ".svelte-kit", "_demo_assets_backup",
+          "dist", ".turbo", "static")
+
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    flush()
+
+
+def marche(*args):
+    """Affiche une progression dans le terminal sans polluer le rapport."""
+    print(*args)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+def fichiers_source(base):
+    out = []
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [d for d in dirnames if d not in IGNORE]
+        for fn in filenames:
+            if fn.endswith((".svelte", ".ts", ".js", ".json", ".css", ".html")):
+                out.append(os.path.join(dirpath, fn))
+    return sorted(out)
+
+
+def lire(p):
+    try:
+        with open(p, "r", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def dump(p, titre, max_lignes=400):
+    say("")
+    say("--------------------------------------------------------------")
+    say(">>> %s : %s" % (titre, p))
+    say("--------------------------------------------------------------")
+    txt = lire(p)
+    lignes = txt.split("\n")
+    for i, l in enumerate(lignes[:max_lignes], 1):
+        say("%4d| %s" % (i, l))
+    if len(lignes) > max_lignes:
+        say("... (%d lignes de plus, tronque)" % (len(lignes) - max_lignes))
+
+
+def main():
+    # ---------- 1. Arborescence de apps/louvo/src ----------
+    marche("1/7 arborescence...")
+    say("===== 1. ARBORESCENCE apps/louvo/src =====")
+    src = fichiers_source(APP)
+    for p in src:
+        n = len(lire(p).split("\n"))
+        say("%-72s %5d lignes" % (p.replace(APP + "/", ""), n))
+    say("total : %d fichiers" % len(src))
+
+    # ---------- 2. Packages partages disponibles ----------
+    marche("2/7 packages...")
+    say("")
+    say("===== 2. PACKAGES DU MONOREPO =====")
+    if os.path.isdir("packages"):
+        for d in sorted(os.listdir("packages")):
+            if os.path.isdir(os.path.join("packages", d)):
+                say("  packages/%s" % d)
+    else:
+        say("  (pas de dossier packages/)")
+    pkg = lire("apps/louvo/package.json")
+    say("")
+    say("--- apps/louvo/package.json ---")
+    for l in pkg.split("\n"):
+        say(l)
+
+    # ---------- 3. Tout ce qui parle de replay / history ----------
+    marche("3/7 grep replay/history...")
+    say("")
+    say("===== 3. GREP : replay / history / bet history =====")
+    motifs = re.compile(r"replay|history|historique|roundId|round_id|bet_id|betId",
+                        re.IGNORECASE)
+    bases = ["apps/louvo/src", "packages"]
+    hits = 0
+    for base in bases:
+        if not os.path.isdir(base):
+            continue
+        for p in fichiers_source(base):
+            txt = lire(p)
+            if not motifs.search(txt):
+                continue
+            for i, l in enumerate(txt.split("\n"), 1):
+                if motifs.search(l):
+                    say("%s:%d: %s" % (p, i, l.strip()[:180]))
+                    hits += 1
+    say("(%d lignes trouvees)" % hits)
+
+    # ---------- 4. Fichiers du framework dedies au replay ----------
+    marche("4/7 fichiers replay du framework...")
+    say("")
+    say("===== 4. FICHIERS DONT LE NOM PARLE DE REPLAY / HISTORY =====")
+    cibles = []
+    for base in bases:
+        if not os.path.isdir(base):
+            continue
+        for p in fichiers_source(base):
+            nom = os.path.basename(p).lower()
+            if "replay" in nom or "history" in nom:
+                cibles.append(p)
+    if cibles:
+        for p in cibles:
+            say("  " + p)
+        for p in cibles[:6]:
+            dump(p, "FICHIER REPLAY/HISTORY", 300)
+    else:
+        say("  (aucun fichier ne porte replay/history dans son nom)")
+
+    # ---------- 5. Le menu 3 traits de Louvo ----------
+    marche("5/7 menu 3 traits...")
+    say("")
+    say("===== 5. MENU / UI DE LOUVO =====")
+    menu_motifs = re.compile(
+        r"burger|hamburger|menu|settings|parametres|paramètres|modal|panel|drawer|sidebar",
+        re.IGNORECASE)
+    candidats = []
+    for p in fichiers_source(APP):
+        nom = os.path.basename(p).lower()
+        score = 0
+        if menu_motifs.search(nom):
+            score += 10
+        txt = lire(p)
+        score += len(menu_motifs.findall(txt))
+        if score > 0:
+            candidats.append((score, p))
+    candidats.sort(key=lambda x: -x[0])
+    say("classement des fichiers les plus 'menu' :")
+    for score, p in candidats[:15]:
+        say("  %4d  %s" % (score, p))
+    say("")
+    say("--- contenu integral des 4 premiers ---")
+    for score, p in candidats[:4]:
+        dump(p, "MENU CANDIDAT (score %d)" % score, 400)
+
+    # ---------- 6. Cote UI partage : ou vivent les entrees de menu ----------
+    marche("6/7 UI partagee...")
+    say("")
+    say("===== 6. COMPOSANTS UI PARTAGES (noms de fichiers) =====")
+    for base in ["packages"]:
+        if not os.path.isdir(base):
+            continue
+        for p in fichiers_source(base):
+            nom = os.path.basename(p).lower()
+            if any(k in nom for k in ("menu", "modal", "ui", "button", "setting",
+                                      "popup", "overlay", "panel")):
+                say("  %s  (%d lignes)" % (p, len(lire(p).split("\n"))))
+
+    # ---------- 7. Responsive : ou la taille est decidee ----------
+    marche("7/7 responsive...")
+    say("")
+    say("===== 7. GREP : dimensionnement / responsive =====")
+    resp = re.compile(
+        r"innerWidth|innerHeight|screen\.width|screen\.height|devicePixelRatio|"
+        r"resize|clientWidth|clientHeight|stateLayout|canvasSize|stageSize|"
+        r"\bscale\b|aspectRatio|orientation|isMobile|isPortrait|device",
+        re.IGNORECASE)
+    for base in bases:
+        if not os.path.isdir(base):
+            continue
+        for p in fichiers_source(base):
+            txt = lire(p)
+            lignes = [(i, l) for i, l in enumerate(txt.split("\n"), 1) if resp.search(l)]
+            if not lignes:
+                continue
+            say("")
+            say("--- %s (%d lignes concernees) ---" % (p, len(lignes)))
+            for i, l in lignes[:40]:
+                say("%5d| %s" % (i, l.strip()[:180]))
+            if len(lignes) > 40:
+                say("      ... (%d de plus)" % (len(lignes) - 40))
+
+    # ---------- 8. Etat git ----------
+    say("")
+    say("===== 8. GIT =====")
+    for cmd in (["git", "log", "--oneline", "-5"],
+                ["git", "status", "--short"],
+                ["git", "branch", "--show-current"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout
+            say("$ " + " ".join(cmd))
+            lignes = out.rstrip().split("\n")
+            for l in lignes[:8]:
+                say("   " + l)
+            if len(lignes) > 8:
+                say("   ... (%d de plus)" % (len(lignes) - 8))
+        except Exception as e:
+            say("   erreur : %s" % e)
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s (aucun fichier modifie)" % ("OK" if ok else "ARRET"))
+print("")
+print("FINI - aucun fichier touche. Envoyez rapport43.txt")

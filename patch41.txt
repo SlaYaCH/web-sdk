@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 41 : suppression definitive de Typekit
+#                 + ouverture des fichiers pour le History
+#
+# 1) packages/pixi-svelte/src/lib/utils.svelte.ts
+#    preloadFont() appelle WebFont.load({typekit:{id:'aba0ebl'}}).
+#    La Content Security Policy de Stake bloque use.typekit.net :
+#    la police proxima-nova n'a JAMAIS pu se charger, le jeu tourne
+#    depuis toujours sur la police de repli. On arrete d'essayer.
+#    => 3 erreurs de console en moins, zero changement a l'ecran.
+#
+# 2) Ouvre en lecture les fichiers necessaires au lot History.
+#
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch41.txt
+#   3) envoyer rapport46.txt
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport46.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    try:
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def dump(p, max_lignes=260):
+    txt = lire(p)
+    say("")
+    say("--------------------------------------------------------------")
+    if txt is None:
+        say(">>> INTROUVABLE : %s" % p)
+        say("--------------------------------------------------------------")
+        return
+    say(">>> %s" % p)
+    say("--------------------------------------------------------------")
+    lignes = txt.split("\n")
+    for i, l in enumerate(lignes[:max_lignes], 1):
+        say("%4d| %s" % (i, l))
+    if len(lignes) > max_lignes:
+        say("... (%d lignes de plus)" % (len(lignes) - max_lignes))
+
+
+NOUVEAU = (
+    "// Typekit est bloque par la Content Security Policy de Stake :\n"
+    "// la police n'a jamais pu se charger et le jeu tourne sur la police\n"
+    "// de repli. On ne tente plus la requete, ce qui supprime les erreurs\n"
+    "// 'violates the following Content Security Policy' et 'Web font load\n"
+    "// inactive' a chaque lancement.\n"
+    "export const preloadFont = () => Promise.resolve();\n"
+)
+
+
+def main():
+    p = "packages/pixi-svelte/src/lib/utils.svelte.ts"
+    say("===== 1. SUPPRESSION DE TYPEKIT =====")
+    txt = lire(p)
+    if txt is None:
+        say("  INTROUVABLE : %s" % p)
+        return False
+
+    if "webfontloader" not in txt and "WebFont" not in txt:
+        say("  deja fait (plus aucune trace de WebFont)")
+    else:
+        motif = re.compile(r"export const preloadFont = \(\) =>.*?\n\t\}\);\n", re.S)
+        m = motif.search(txt)
+        if not m:
+            raise AssertionError("le bloc preloadFont n'a pas ete reconnu - rien n'a ete modifie")
+        bloc = m.group(0)
+        # garde-fou : on ne remplace que si c'est bien le bloc Typekit
+        if "WebFont.load" not in bloc or "typekit" not in bloc:
+            raise AssertionError("le bloc trouve ne contient pas WebFont/typekit - rien n'a ete modifie")
+        say("  bloc preloadFont reconnu (%d lignes)" % len(bloc.split("\n")))
+
+        nouveau_txt = txt.replace(bloc, NOUVEAU, 1)
+        nouveau_txt = nouveau_txt.replace("import WebFont from 'webfontloader';\n\n", "", 1)
+        nouveau_txt = nouveau_txt.replace("import WebFont from 'webfontloader';\n", "", 1)
+
+        if "WebFont" in nouveau_txt:
+            raise AssertionError("il reste une reference a WebFont - rien n'a ete enregistre")
+
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(nouveau_txt)
+        say("  import webfontloader retire")
+        say("  preloadFont() renvoie desormais une promesse deja resolue")
+
+    say("")
+    say("===== 2. VERIFICATION =====")
+    apres = lire(p) or ""
+    for motif, attendu in (("WebFont", False), ("typekit", False), ("preloadFont", True)):
+        present = motif in apres
+        say("  %-24s %-8s %s" % (motif, "present" if present else "absent",
+                                 "OK" if present == attendu else "*** ECHEC ***"))
+    say("")
+    say("  app.html contient encore typekit : %s"
+        % ("OUI *** anormal ***" if "typekit" in (lire("apps/louvo/src/app.html") or "") else "non - OK"))
+
+    say("")
+    say("===== 3. FICHIERS POUR LE LOT HISTORY (lecture seule) =====")
+    for chemin in ("packages/utils-xstate/src/createPrimaryMachines.ts",
+                   "packages/utils-xstate/index.ts",
+                   "apps/louvo/src/game/stateXstate.ts",
+                   "apps/louvo/src/game/context.ts",
+                   "apps/louvo/src/game/typesEmitterEvent.ts",
+                   "packages/rgs-requests/src/types.ts"):
+        dump(chemin)
+
+    say("")
+    say("===== 4. AUTRES FICHIERS DE utils-xstate =====")
+    base = "packages/utils-xstate/src"
+    if os.path.isdir(base):
+        for fn in sorted(os.listdir(base)):
+            fp = os.path.join(base, fn)
+            if os.path.isfile(fp):
+                say("  %-56s %4d lignes" % (fp, len((lire(fp) or "").split("\n"))))
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC - envoyez rapport46.txt"))
+print("")
+print("FINI - envoyez rapport46.txt")

@@ -15,6 +15,8 @@
 	import WinLinesDisplay from './WinLinesDisplay.svelte';
 	import LouvoSettingsMenu from './LouvoSettingsMenu.svelte';
 	import LouvoBonusMenu from './LouvoBonusMenu.svelte';
+	import LouvoReplayBar from './LouvoReplayBar.svelte';
+	import LouvoHistoryPanel from './LouvoHistoryPanel.svelte';
 	import { GameVersion, Modals } from 'components-ui-html';
 
 	import { getContext } from '../game/context';
@@ -41,9 +43,30 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 	const context = getContext();
 
+	// Mode replay officiel Stake : l'URL porte replay=true, Authenticate.svelte
+	// a deja pose stateUi.config.mode = 'replay' et appele /bet/replay/...
+	// Aucune vraie mise ne doit etre possible dans ce mode.
+	const isReplayMode = $derived(stateUi.config.mode === 'replay');
+
+	// Les panneaux ci-dessous sont poses en pixels de canvas bruts, sans
+	// passer par MainContainer : ils ne beneficient donc pas du scale du
+	// SDK. Sur un telephone de 375 px de large, un panneau de 980 px
+	// deborde largement. On applique le meme principe qu'ailleurs : un
+	// seul facteur d'echelle sur tout le conteneur, plafonne a 1 pour ne
+	// rien changer sur grand ecran.
+	const overlayScale = (panelWidth: number, panelHeight: number) => {
+		const canvas = context.stateLayoutDerived.canvasSizes();
+		return Math.min(
+			1,
+			(canvas.width - 24) / panelWidth,
+			(canvas.height - 24) / panelHeight,
+		);
+	};
+
 	onMount(() => (context.stateLayout.showLoadingScreen = true));
 
 	let bonusMenuOpen = $state(false);
+	let historyOpen = $state(false);
 	let showIntroScreen = $state(false);
 
 	context.eventEmitter.subscribeOnMount({
@@ -51,6 +74,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 			stateModal.modal = { name: 'buyBonusConfirm' };
 		},
 		bonusMenuShow: () => (bonusMenuOpen = true),
+		historyShow: () => (historyOpen = true),
 	});
 </script>
 
@@ -138,7 +162,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 				x={context.stateLayoutDerived.mainLayoutStandard().width * 0.5}
 				y={context.stateLayoutDerived.mainLayoutStandard().height - 10}
 			>
-				<LouvoBottomBar />
+				{#if isReplayMode}<LouvoReplayBar />{:else}<LouvoBottomBar />{/if}
 			</Container>
 		</MainContainer>
 
@@ -158,6 +182,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 			<Container
 				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
 				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+				scale={overlayScale(380, 650)}
 			>
 				<LouvoSettingsMenu />
 			</Container>
@@ -179,8 +204,30 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 			<Container
 				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
 				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+				scale={overlayScale(914, 374)}
 			>
 				<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />
+			</Container>
+		{/if}
+		{#if historyOpen}
+			<Rectangle
+				eventMode="static"
+				cursor="pointer"
+				alpha={0.5}
+				anchor={0.5}
+				backgroundColor={BLACK}
+				width={context.stateLayoutDerived.canvasSizes().width}
+				height={context.stateLayoutDerived.canvasSizes().height}
+				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+				onpointerup={() => (historyOpen = false)}
+			/>
+			<Container
+				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
+				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
+				scale={overlayScale(980, 640)}
+			>
+				<LouvoHistoryPanel onclose={() => (historyOpen = false)} />
 			</Container>
 		{/if}
 		<Win />

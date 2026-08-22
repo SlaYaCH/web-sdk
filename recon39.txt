@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 39 : RECONNAISSANCE CIBLEE (LECTURE SEULE)
+#
+# Ouvre en entier les fichiers dont Claude a besoin pour ecrire
+# le History/replay et le responsive sans rien deviner :
+#   - la couche RGS (ce que le serveur sait faire)
+#   - l'etat des mises / de l'UI / des modales
+#   - le systeme de mise en page (createLayout)
+#   - la barre du bas de Louvo (le bouton 3 traits)
+#   - app.html (pour retirer Typekit bloque par la CSP)
+#
+# NE MODIFIE RIEN. Rapport ecrit apres chaque section.
+# AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 recon39.txt
+#   3) envoyer rapport44.txt
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport44.txt"
+
+# fichiers ouverts en entier
+FICHIERS = [
+    "apps/louvo/src/app.html",
+    "apps/louvo/src/game/stateLayout.ts",
+    "apps/louvo/src/components/LouvoBottomBar.svelte",
+    "packages/rgs-requests/src/rgs-requests.ts",
+    "packages/components-shared/src/components/Authenticate.svelte",
+    "packages/components-ui-html/src/components/Modals.svelte",
+    "packages/components-ui-pixi/src/components/UI.svelte",
+    "packages/components-ui-pixi/src/components/UIDefault.svelte",
+    "packages/utils-book/src/utils.ts",
+]
+
+# dossiers dont on ouvre tous les .ts / .svelte
+DOSSIERS = [
+    "packages/state-shared/src",
+    "packages/utils-layout",
+]
+
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    flush()
+
+
+def marche(*a):
+    print(*a)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+def lire(p):
+    try:
+        with open(p, "r", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def dump(p, max_lignes=500):
+    txt = lire(p)
+    say("")
+    say("--------------------------------------------------------------")
+    if txt is None:
+        say(">>> INTROUVABLE : %s" % p)
+        say("--------------------------------------------------------------")
+        return
+    say(">>> %s" % p)
+    say("--------------------------------------------------------------")
+    lignes = txt.split("\n")
+    for i, l in enumerate(lignes[:max_lignes], 1):
+        say("%4d| %s" % (i, l))
+    if len(lignes) > max_lignes:
+        say("... (%d lignes de plus, tronque)" % (len(lignes) - max_lignes))
+
+
+def main():
+    # ---------- 1. Fichiers cibles ----------
+    marche("1/4 fichiers cibles...")
+    say("===== 1. FICHIERS OUVERTS EN ENTIER =====")
+    for p in FICHIERS:
+        dump(p)
+
+    # ---------- 2. Dossiers complets ----------
+    marche("2/4 dossiers state-shared et utils-layout...")
+    say("")
+    say("===== 2. DOSSIERS OUVERTS EN ENTIER =====")
+    for base in DOSSIERS:
+        if not os.path.isdir(base):
+            say("")
+            say(">>> DOSSIER INTROUVABLE : %s" % base)
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in ("node_modules", "dist", ".turbo")]
+            for fn in sorted(filenames):
+                if fn.endswith((".ts", ".svelte")) and not fn.endswith(".d.ts"):
+                    dump(os.path.join(dirpath, fn), 400)
+
+    # ---------- 3. Le RGS expose-t-il un historique ? ----------
+    marche("3/4 recherche d'un endpoint d'historique...")
+    say("")
+    say("===== 3. TOUTES LES ROUTES RGS CONNUES DU SDK =====")
+    routes = set()
+    for base in ("packages", "apps/louvo/src"):
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames
+                           if d not in ("node_modules", "dist", ".turbo", "build", ".svelte-kit")]
+            for fn in filenames:
+                if not fn.endswith((".ts", ".svelte", ".json")):
+                    continue
+                txt = lire(os.path.join(dirpath, fn)) or ""
+                for m in re.findall(r"['\"`](/(?:bet|wallet|game|round|player|user|session)[A-Za-z0-9_/${}.-]*)", txt):
+                    routes.add(m)
+    for r in sorted(routes):
+        say("  " + r)
+    if not routes:
+        say("  (aucune route trouvee)")
+
+    say("")
+    say("--- mots-cles d'historique dans le schema RGS ---")
+    sch = lire("packages/rgs-fetcher/src/schema.ts")
+    if sch is None:
+        say("  schema.ts introuvable")
+    else:
+        say("  taille du schema : %d lignes" % len(sch.split("\n")))
+        motifs = re.compile(r"history|History|rounds?\b|Round|bets?\b|Bet[A-Z]|timestamp|createdAt|dateTime",
+                            re.IGNORECASE)
+        trouves = [(i, l.strip()) for i, l in enumerate(sch.split("\n"), 1) if motifs.search(l)]
+        for i, l in trouves[:80]:
+            say("%6d| %s" % (i, l[:160]))
+        if len(trouves) > 80:
+            say("      ... (%d de plus)" % (len(trouves) - 80))
+
+    # ---------- 4. Typekit / polices externes ----------
+    marche("4/4 typekit...")
+    say("")
+    say("===== 4. OU TYPEKIT EST-IL APPELE ? =====")
+    hits = 0
+    for base in ("apps/louvo", "packages"):
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames
+                           if d not in ("node_modules", "dist", ".turbo", "build", ".svelte-kit", "static")]
+            for fn in filenames:
+                if not fn.endswith((".ts", ".js", ".svelte", ".html", ".css", ".json")):
+                    continue
+                p = os.path.join(dirpath, fn)
+                txt = lire(p) or ""
+                for i, l in enumerate(txt.split("\n"), 1):
+                    if re.search(r"typekit|proxima|webfont|WebFont|use\.typekit", l, re.IGNORECASE):
+                        say("%s:%d: %s" % (p, i, l.strip()[:170]))
+                        hits += 1
+    say("(%d lignes trouvees)" % hits)
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s (aucun fichier modifie)" % ("OK" if ok else "ARRET"))
+print("")
+print("FINI - aucun fichier touche. Envoyez rapport44.txt")

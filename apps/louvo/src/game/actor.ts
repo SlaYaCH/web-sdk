@@ -8,6 +8,7 @@ import type { Bet } from './typesBookEvent';
 import { stateXstateDerived } from './stateXstate';
 import { playBet, convertTorResumableBet } from './utils';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
+import { recordRound } from './stateHistory.svelte';
 import config from './config';
 
 const primaryMachines = createPrimaryMachines<Bet>({
@@ -28,7 +29,12 @@ const primaryMachines = createPrimaryMachines<Bet>({
 		});
 	},
 	onNewGameError: () => stateGameDerived.enhancedBoard.settle(),
-	onPlayGame: async (bet) => await playBet(bet),
+	onPlayGame: async (bet) => {
+		// Historique local de la session (menu 3 traits > HISTORY).
+		// Ne peut pas echouer : recordRound est protege par un try/catch.
+		recordRound(bet);
+		await playBet(bet);
+	},
 	checkIsBonusGame: (bet) => checkIsMultipleRevealEvents({ bookEvents: bet.state }),
 });
 

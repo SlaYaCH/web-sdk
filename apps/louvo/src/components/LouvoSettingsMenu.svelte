@@ -8,7 +8,7 @@
 	const context = getContext();
 
 	const PANEL_WIDTH = 380;
-	const PANEL_HEIGHT = 560;
+	const PANEL_HEIGHT = 650;
 	const ROW_WIDTH = PANEL_WIDTH - 40;
 	const ROW_HEIGHT = 55;
 	const ROW_GAP = 70;
@@ -32,6 +32,12 @@
 		stateBet.stopOnWin = !stateBet.stopOnWin;
 	};
 
+	const onHistory = () => {
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		stateUi.menuOpen = false;
+		context.eventEmitter.broadcast({ type: 'historyShow' });
+	};
+
 	const onInfo = () => {
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		stateModal.modal = { name: 'gameRules' };
@@ -51,6 +57,7 @@
 		{ label: turboLabel, onpress: onTurbo },
 		{ label: superTurboLabel, onpress: onSuperTurbo },
 		{ label: stopOnWinLabel, onpress: onStopOnWin },
+		{ label: 'HISTORY', onpress: onHistory },
 		{ label: 'INFO / RULES', onpress: onInfo },
 		{ label: 'CLOSE', onpress: onHome },
 	]);
