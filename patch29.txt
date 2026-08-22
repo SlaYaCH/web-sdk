@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 29 : une banniere ne se ferme que quand SON rouleau
+# se met a bouger (securite 2 s) - fini la colonne de W decouverte
+# en turbo/super turbo quand la banniere est sur un rouleau qui
+# n'est pas encore parti (les rouleaux demarrent en cascade).
+# La sortie de bonus (bannerEpoch += 2, ecran couvert par la
+# transition) garde une fermeture immediate.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch29.txt
+#   3) envoyer rapport32.txt
+# Build coupe automatiquement (5 min max), pas de Ctrl+C.
+# ============================================================
+import os
+import subprocess
+import sys
+
+T = "\t"
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+OVERLAY = "apps/louvo/src/components/SpecialRevealOverlay.svelte"
+
+files = {}
+journal = []
+
+
+def load(p):
+    if p not in files:
+        with open(p) as f:
+            files[p] = f.read()
+
+
+def rep(p, old, new, tag):
+    load(p)
+    if new and new not in old:
+        applied = new in files[p]
+    else:
+        applied = old not in files[p]
+    if applied:
+        journal.append("%s : deja applique, saute" % tag)
+        return
+    n = files[p].count(old)
+    if n != 1:
+        raise AssertionError("%s ECHEC : %d occurrence(s) du texte attendu dans %s" % (tag, n, p))
+    files[p] = files[p].replace(old, new, 1)
+    journal.append("%s : OK" % tag)
+
+
+def run_patches():
+    # V1. helper : fermeture au depart du rouleau
+    rep(OVERLAY,
+        T + "context.eventEmitter.subscribeOnMount({",
+        "\n".join([
+            T + "// Fermeture \"au depart du rouleau\" : une banniere fermee alors que SA",
+            T + "// colonne est encore a l'arret decouvrirait la colonne de W du book",
+            T + "// (vu en turbo/super turbo en bonus : les rouleaux partent en cascade,",
+            T + "// un minuteur fixe fermait la banniere avant que son rouleau ne bouge).",
+            T + "const scheduledCloseIds = new Set<number>();",
+            T + "const closeWhenReelMoves = async (id: number, reelIndex: number) => {",
+            T*2 + "if (scheduledCloseIds.has(id)) return;",
+            T*2 + "scheduledCloseIds.add(id);",
+            T*2 + "const start = performance.now();",
+            T*2 + "while (",
+            T*3 + "context.stateGame.board[reelIndex]?.reelState.motion === 'stopped' &&",
+            T*3 + "performance.now() - start < 2000",
+            T*2 + ") {",
+            T*3 + "await new Promise((r) => setTimeout(r, 30));",
+            T*2 + "}",
+            T*2 + "activeReveals = activeReveals.map((r) =>",
+            T*3 + "r.id === id ? { ...r, closeToken: r.closeToken + 1 } : r,",
+            T*2 + ");",
+            T + "};",
+            "",
+            T + "context.eventEmitter.subscribeOnMount({",
+        ]), "V1")
+
+    # V2. spinStart (base game) : fermeture au depart de chaque rouleau
+    rep(OVERLAY,
+        "\n".join([
+            T*2 + "spinStart: () => {",
+            T*3 + "activeReveals = activeReveals.map((r) => ({ ...r, closeToken: r.closeToken + 1 }));",
+            T*2 + "},",
+        ]),
+        "\n".join([
+            T*2 + "spinStart: () => {",
+            T*3 + "// Au DEPART de chaque rouleau, pas au clic : sinon la colonne de W",
+            T*3 + "// du book se decouvre avant que le rouleau ne bouge.",
+            T*3 + "activeReveals.forEach((r) => closeWhenReelMoves(r.id, r.reelIndex));",
+            T*2 + "},",
+        ]), "V2")
+
+    # V3. meme rouleau (Like Storm) : l'ancienne attend aussi son rouleau
+    rep(OVERLAY,
+        "\n".join([
+            T*3 + "// Une banniere d'un TOUR PRECEDENT encore affichee sur le MEME rouleau :",
+            T*3 + "// fermee immediatement, sinon les deux se superposent (vu en Like Storm,",
+            T*3 + "// deux Super Like sur la meme colonne a deux spins d'affilee).",
+            T*3 + "activeReveals = activeReveals.map((r) =>",
+            T*4 + "r.reelIndex === emitterEvent.reelIndex && r.epoch < context.stateGame.bannerEpoch",
+            T*5 + "? { ...r, closeToken: r.closeToken + 1 }",
+            T*5 + ": r,",
+            T*3 + ");",
+        ]),
+        "\n".join([
+            T*3 + "// Une banniere d'un TOUR PRECEDENT encore sur le MEME rouleau : la",
+            T*3 + "// nouvelle se superpose (vu en Like Storm) et l'ancienne se ferme des",
+            T*3 + "// que son rouleau bouge - jamais avant (colonne de W dessous).",
+            T*3 + "activeReveals.forEach((r) => {",
+            T*4 + "if (r.reelIndex === emitterEvent.reelIndex && r.epoch < context.stateGame.bannerEpoch) {",
+            T*5 + "closeWhenReelMoves(r.id, r.reelIndex);",
+            T*4 + "}",
+            T*3 + "});",
+        ]), "V3")
+
+    # V4. fermeture par epoch : differee au depart du rouleau en bonus,
+    #     immediate uniquement en sortie de bonus (saut de +2, ecran couvert)
+    rep(OVERLAY,
+        "\n".join([
+            T + "let lastEpoch = 0;",
+            T + "$effect(() => {",
+            T*2 + "const epoch = context.stateGame.bannerEpoch;",
+            T*2 + "if (epoch === lastEpoch) return;",
+            T*2 + "lastEpoch = epoch;",
+            T*2 + "activeReveals = activeReveals.map((r) =>",
+            T*3 + "r.epoch < epoch - 1 ? { ...r, closeToken: r.closeToken + 1 } : r",
+            T*2 + ");",
+            T + "});",
+        ]),
+        "\n".join([
+            T + "let lastEpoch = 0;",
+            T + "$effect(() => {",
+            T*2 + "const epoch = context.stateGame.bannerEpoch;",
+            T*2 + "if (epoch === lastEpoch) return;",
+            T*2 + "// Saut de +2 = sortie de bonus (freeSpinEnd) : l'ecran est couvert par",
+            T*2 + "// la transition, fermeture immediate. Sinon (nouveau tour), chaque",
+            T*2 + "// banniere perimee ne se ferme que quand SON rouleau se met a bouger.",
+            T*2 + "const exitJump = epoch - lastEpoch >= 2;",
+            T*2 + "lastEpoch = epoch;",
+            T*2 + "if (exitJump) {",
+            T*3 + "activeReveals = activeReveals.map((r) =>",
+            T*4 + "r.epoch < epoch - 1 ? { ...r, closeToken: r.closeToken + 1 } : r,",
+            T*3 + ");",
+            T*3 + "return;",
+            T*2 + "}",
+            T*2 + "for (const r of activeReveals) {",
+            T*3 + "if (r.epoch < epoch - 1) closeWhenReelMoves(r.id, r.reelIndex);",
+            T*2 + "}",
+            T + "});",
+        ]), "V4")
+
+
+def main():
+    report = []
+    try:
+        run_patches()
+        for p, c in files.items():
+            with open(p, "w") as f:
+                f.write(c)
+        report.append("===== JOURNAL DES PATCHS =====")
+        report.extend(journal)
+        patch_failed = False
+    except AssertionError as e:
+        report.append("===== JOURNAL DES PATCHS (ECHEC, RIEN N'A ETE ECRIT) =====")
+        report.extend(journal)
+        report.append(str(e))
+        patch_failed = True
+
+    report.append("")
+    report.append("===== PREUVES =====")
+    all_ok = not patch_failed
+    with open(OVERLAY) as f:
+        content = f.read()
+    for needle, expected in [
+        ("closeWhenReelMoves", 4),
+        ("scheduledCloseIds", 3),
+        ("exitJump", 2),
+    ]:
+        n = content.count(needle)
+        report.append("%-24s : %d (attendu %d)" % (needle, n, expected))
+        if n < expected:
+            all_ok = False
+    report.append("----- restes (attendu 0) -----")
+    n = content.count("fermee immediatement")
+    report.append("%-24s : %d" % ("fermee immediatement", n))
+    if n != 0:
+        all_ok = False
+
+    report.append("")
+    report.append("===== git status --short =====")
+    try:
+        out = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
+        report.append(out.rstrip() or "(arbre propre)")
+    except OSError as e:
+        report.append("git indisponible : %s" % e)
+
+    with open("rapport32.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+
+    report.append("")
+    report.append("===== BUILD =====")
+    if all_ok:
+        timed_out = False
+        with open("build_log.txt", "w") as logf:
+            try:
+                code = subprocess.run(["pnpm", "run", "build", "--filter=louvo"],
+                                      stdout=logf, stderr=subprocess.STDOUT, timeout=300).returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                code = -1
+        with open("build_log.txt") as f:
+            log = f.read()
+        report.extend(log.rstrip().split("\n")[-6:])
+        site_ecrit = ("Wrote site to" in log) or ("done" in log)
+        if timed_out:
+            report.append("(build coupe apres 5 min - comportement pnpm connu)")
+        report.append("site ecrit : %s / exit : %s" % ("OUI" if site_ecrit else "NON", code))
+        if not site_ecrit:
+            all_ok = False
+    else:
+        report.append("BUILD SAUTE (patchs incomplets)")
+
+    report.append("")
+    report.append("VERDICT : %s" % ("TOUT OK - commit, deploiement, tests" if all_ok else "ECHEC - envoyez ce rapport a Claude"))
+
+    with open("rapport32.txt", "w") as f:
+        f.write("\n".join(report) + "\n")
+    print("\n".join(report[-4:]))
+    print("FINI - envoyez rapport32.txt")
+    sys.exit(0 if all_ok else 1)
+
+
+main()
