@@ -69,3 +69,6 @@ run_output*.txt
 etat.txt
 patch_*.py
 patch_*.txt
+
+# Assets de la demo d'origine, mis a l'ecart (recuperables ici ou via git)
+_demo_assets_backup/

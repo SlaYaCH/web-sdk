@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 36 : suite du nettoyage
+#   A) fichiers audio de sauvegarde (*.backup)        ~26.5 Mo
+#   B) sounds.ac3 / sounds.m4a  MAIS SEULEMENT si le bundle
+#      ne les reclame nulle part                      ~19.2 Mo
+#   C) doublons lourds de sprites/screens             ~11.6 Mo
+#
+# Rien n'est supprime : tout part dans _demo_assets_backup/
+# Rien n'est deplace sans avoir ete reverifie comme non
+# reference dans le bundle a l'instant meme.
+#
+# VERROUS EN DUR - jamais touches :
+#   - assets/fonts/**                 (polices chargees dynamiquement)
+#   - assets/spines/anticipation/**   (les rochers)
+#   - sounds.mp3 / sounds.ogg / sounds.json (le son du jeu)
+#
+# Le rapport est ecrit APRES CHAQUE LIGNE : meme si le terminal
+# coupe, rapport42.txt contient tout ce qui a ete fait.
+# AUCUN BUILD n'est lance.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch36.txt
+#   3) envoyer rapport42.txt
+# ============================================================
+import os
+import re
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+BUILD = "apps/louvo/build"
+STATIC = "apps/louvo/static/assets"
+BACKUP = "_demo_assets_backup"
+RAPPORT = "rapport42.txt"
+
+# jamais deplaces, quoi qu'il arrive
+INTOUCHABLES = (
+    "fonts/",
+    "spines/anticipation/",
+    "audio/sounds.mp3",
+    "audio/sounds.ogg",
+    "audio/sounds.json",
+)
+
+# doublons candidats reperes par le rapport 41 (chacun sera reverifie)
+CANDIDATS_SPRITES = [
+    "sprites/screens/special/date_scatter.png",
+    "sprites/screens/special/wild.png",
+    "sprites/screens/loading_screen_backup.png",
+    "sprites/screens/special/match_icon.png",
+    "sprites/screens/special/superlike_icon.png",
+]
+
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def human(n):
+    if n < 1024:
+        return "%d o" % n
+    if n < 1024 * 1024:
+        return "%.0f Ko" % (n / 1024.0)
+    return "%.2f Mo" % (n / 1024.0 / 1024.0)
+
+
+def dir_size(path):
+    total = 0
+    for dirpath, _d, filenames in os.walk(path):
+        for fn in filenames:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, fn))
+            except OSError:
+                pass
+    return total
+
+
+def protege(rel):
+    for p in INTOUCHABLES:
+        if rel == p or rel.startswith(p):
+            return True
+    return False
+
+
+def mettre_a_lecart(rel, motif):
+    """rel = chemin relatif a STATIC. Renvoie la taille liberee."""
+    src = os.path.join(STATIC, rel)
+    if protege(rel):
+        say("%-52s  REFUS : fichier protege" % rel)
+        return 0
+    if not os.path.isfile(src):
+        say("%-52s  absent (deja fait ?)" % rel)
+        return 0
+    size = os.path.getsize(src)
+    dest = os.path.join(BACKUP, "assets", rel)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    if os.path.exists(dest):
+        os.remove(dest)
+    shutil.move(src, dest)
+    say("%-52s %10s  -> backup  (%s)" % (rel, human(size), motif))
+    return size
+
+
+def main():
+    if not os.path.isdir(STATIC):
+        say("ERREUR : %s introuvable" % STATIC)
+        return False
+    if not os.path.isdir(BUILD):
+        say("ERREUR : dossier build introuvable - lancez d'abord un build")
+        return False
+
+    libere = 0
+
+    # ---------- 1. Relecture du bundle ----------
+    say("===== 1. RELECTURE DU BUNDLE =====")
+    referenced = set()
+    bundle_texte = []
+    for dirpath, _d, filenames in os.walk(BUILD):
+        if os.path.sep + "assets" + os.path.sep in dirpath + os.path.sep:
+            continue
+        for fn in filenames:
+            if not fn.endswith((".js", ".html", ".json", ".css")):
+                continue
+            try:
+                with open(os.path.join(dirpath, fn), "r", errors="ignore") as f:
+                    content = f.read()
+            except OSError:
+                continue
+            bundle_texte.append(content)
+            for h in re.findall(r"assets/[A-Za-z0-9_./-]+", content):
+                referenced.add(os.path.splitext(h)[0])
+
+    say("chemins d'assets distincts demandes par le jeu : %d" % len(referenced))
+    if len(referenced) < 30:
+        say("ARRET DE SECURITE : bundle incomplet. Rien n'a ete touche.")
+        return False
+    tout = "\n".join(bundle_texte)
+    say("volume de code scanne : %s" % human(len(tout)))
+
+    def est_utilise(rel):
+        return os.path.splitext("assets/" + rel)[0] in referenced
+
+    # ---------- 2. Ce que sounds.json declare vraiment ----------
+    say("")
+    say("===== 2. CE QUE sounds.json DECLARE =====")
+    sj_path = os.path.join(STATIC, "audio", "sounds.json")
+    if os.path.exists(sj_path):
+        with open(sj_path, "r", errors="ignore") as f:
+            sj = f.read()
+        blocs = re.findall(r'"(?:urls?|src)"\s*:\s*(\[[^\]]*\]|"[^"]*")', sj)
+        if blocs:
+            for b in blocs[:5]:
+                say("   %s" % b.strip())
+        else:
+            say("   (aucun champ urls/src trouve)")
+        for ext in ("mp3", "ogg", "m4a", "ac3", "webm", "wav"):
+            say("   .%-5s cite dans sounds.json : %s"
+                % (ext, "OUI" if ("." + ext) in sj else "non"))
+    else:
+        say("   sounds.json introuvable")
+
+    # ---------- 3. Le bundle reclame-t-il ac3 / m4a ? ----------
+    say("")
+    say("===== 3. LE CODE DU JEU RECLAME-T-IL ac3 / m4a ? =====")
+    verdict_ext = {}
+    for ext in ("mp3", "ogg", "m4a", "ac3", "webm", "wav", "aac"):
+        n_point = len(re.findall(r"\." + ext + r"\b", tout))
+        n_nu = len(re.findall(r"['\"]" + ext + r"['\"]", tout))
+        present = (n_point + n_nu) > 0
+        verdict_ext[ext] = present
+        say("   %-5s : %3d occurrences '.%s'   %3d occurrences \"%s\"   -> %s"
+            % (ext, n_point, ext, n_nu, ext, "RECLAME" if present else "jamais cite"))
+
+    # ---------- 4. Fichiers audio de sauvegarde ----------
+    say("")
+    say("===== 4. FICHIERS AUDIO DE SAUVEGARDE (*.backup) =====")
+    audio_dir = os.path.join(STATIC, "audio")
+    trouve = False
+    for fn in sorted(os.listdir(audio_dir)):
+        if not fn.endswith(".backup"):
+            continue
+        trouve = True
+        libere += mettre_a_lecart("audio/" + fn, "fichier de sauvegarde")
+    if not trouve:
+        say("(aucun - deja fait)")
+
+    # ---------- 5. sounds.ac3 / sounds.m4a ----------
+    say("")
+    say("===== 5. FORMATS DE REPLI ac3 / m4a =====")
+    for ext in ("ac3", "m4a"):
+        rel = "audio/sounds." + ext
+        chemin = os.path.join(STATIC, "sounds." + ext)
+        if not os.path.isfile(os.path.join(STATIC, rel)):
+            say("%-52s  absent (deja fait ?)" % rel)
+            continue
+        if verdict_ext[ext]:
+            say("%-52s  GARDE : le code reclame ce format" % rel)
+        else:
+            libere += mettre_a_lecart(rel, "format jamais reclame par le code")
+
+    # ---------- 6. Doublons lourds de sprites/screens ----------
+    say("")
+    say("===== 6. DOUBLONS LOURDS DE sprites/screens =====")
+    for rel in CANDIDATS_SPRITES:
+        if not os.path.isfile(os.path.join(STATIC, rel)):
+            say("%-52s  absent (deja fait ?)" % rel)
+            continue
+        if est_utilise(rel):
+            say("%-52s  GARDE : le bundle le demande !" % rel)
+        else:
+            libere += mettre_a_lecart(rel, "jamais demande par le bundle")
+
+    # dossier screens/special vide ?
+    sp = os.path.join(STATIC, "sprites", "screens", "special")
+    if os.path.isdir(sp) and not os.listdir(sp):
+        os.rmdir(sp)
+        say("sprites/screens/special/ : dossier vide supprime")
+
+    # ---------- 7. Ce qui reste de non demande ----------
+    say("")
+    say("===== 7. CE QUI RESTE DE NON DEMANDE (rien n'est touche) =====")
+    restants = []
+    for dirpath, _d, filenames in os.walk(STATIC):
+        rel_dir = os.path.relpath(dirpath, STATIC).replace(os.sep, "/")
+        if rel_dir == ".":
+            rel_dir = ""
+        if rel_dir.split("/")[0] == "audio":
+            continue
+        for fn in filenames:
+            rel = (rel_dir + "/" + fn) if rel_dir else fn
+            if not est_utilise(rel):
+                try:
+                    restants.append((rel, os.path.getsize(os.path.join(dirpath, fn))))
+                except OSError:
+                    pass
+    for name, size in sorted(restants, key=lambda x: -x[1])[:25]:
+        say("%-58s %10s" % (name, human(size)))
+    if not restants:
+        say("(aucun)")
+
+    # ---------- 8. Bilan ----------
+    say("")
+    say("===== 8. BILAN =====")
+    say("libere par cette execution            : %s" % human(libere))
+    say("poids de static/assets maintenant     : %s" % human(dir_size(STATIC)))
+    say("   dont audio/                        : %s" % human(dir_size(audio_dir)))
+    say("   dont fonts/  (intouche)            : %s" % human(dir_size(os.path.join(STATIC, "fonts"))))
+    if os.path.isdir(BACKUP):
+        say("poids total mis a l'ecart             : %s" % human(dir_size(BACKUP)))
+    say("")
+    say("AUCUN BUILD N'A ETE LANCE PAR CE SCRIPT.")
+    say("Etape suivante, a taper vous-meme :")
+    say("   pnpm run build --filter=louvo")
+    say("puis TESTEZ LE SON du jeu avant tout commit.")
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - envoyez rapport42.txt" if ok else "ARRET - envoyez rapport42.txt"))
+print("")
+print("FINI - envoyez rapport42.txt")

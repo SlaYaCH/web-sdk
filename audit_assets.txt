@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - AUDIT DES ASSETS (lecture seule, ne supprime RIEN)
+#
+# Compare ce que le bundle DEPLOYE demande reellement avec ce qui
+# dort dans static/assets. Tout fichier present mais jamais demande
+# est du poids uploade pour rien a chaque deploiement.
+#
+# Regle prudente : un fichier est considere UTILISE des que son nom
+# sans extension apparait dans le bundle (couvre les paires
+# .webp/.png et .json/.xml que Pixi choisit au runtime).
+# Le dossier audio/ est exclu de l'analyse (les sons sont references
+# a l'interieur de sounds.json, pas dans le bundle).
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 audit_assets.txt
+#   3) envoyer rapport39.txt
+# ============================================================
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+BUILD = "apps/louvo/build"
+STATIC = "apps/louvo/static/assets"
+
+report = []
+
+
+def human(n):
+    for unit in ["o", "Ko", "Mo"]:
+        if n < 1024 or unit == "Mo":
+            return "%.0f %s" % (n, unit) if unit != "Mo" else "%.2f %s" % (n, unit)
+        n /= 1024.0
+
+
+# ---- 1. Ce que le bundle deploye demande vraiment ----
+if not os.path.isdir(BUILD):
+    print("ERREUR : dossier build introuvable - lancez d'abord un build")
+    sys.exit(1)
+
+referenced = set()
+scanned = []
+for dirpath, _dirnames, filenames in os.walk(BUILD):
+    # on ne relit pas les assets eux-memes, seulement le code et les pages
+    if os.path.sep + "assets" + os.path.sep in dirpath + os.path.sep:
+        continue
+    for fn in filenames:
+        if not fn.endswith((".js", ".html", ".json", ".css")):
+            continue
+        p = os.path.join(dirpath, fn)
+        try:
+            with open(p, "r", errors="ignore") as f:
+                content = f.read()
+        except OSError:
+            continue
+        hits = re.findall(r"assets/[A-Za-z0-9_./-]+", content)
+        if hits:
+            scanned.append((p, len(hits)))
+            for h in hits:
+                referenced.add(os.path.splitext(h)[0])
+
+report.append("===== 1. FICHIERS DU BUILD SCANNES =====")
+for p, n in sorted(scanned, key=lambda x: -x[1])[:10]:
+    report.append("%-70s %d references" % (p.replace(BUILD + "/", ""), n))
+report.append("chemins d'assets distincts demandes par le jeu : %d" % len(referenced))
+
+# ---- 2. Ce qui dort dans static/assets ----
+report.append("")
+report.append("===== 2. DOSSIERS DE static/assets =====")
+report.append("%-52s %10s %8s %8s   %s" % ("dossier", "poids", "fichiers", "utilises", "verdict"))
+
+total_all = 0
+total_dead = 0
+dead_dirs = []
+alive_partial = []
+
+for top in sorted(os.listdir(STATIC)):
+    top_path = os.path.join(STATIC, top)
+    if not os.path.isdir(top_path):
+        continue
+    subs = sorted([d for d in os.listdir(top_path) if os.path.isdir(os.path.join(top_path, d))])
+    entries = [(top, top_path)] if not subs else [(top + "/" + s, os.path.join(top_path, s)) for s in subs]
+    for label, path in entries:
+        size = 0
+        nb = 0
+        used = 0
+        for dirpath, _d, filenames in os.walk(path):
+            for fn in filenames:
+                fp = os.path.join(dirpath, fn)
+                try:
+                    size += os.path.getsize(fp)
+                except OSError:
+                    pass
+                nb += 1
+                rel = os.path.relpath(fp, os.path.dirname(STATIC)).replace(os.sep, "/")
+                if os.path.splitext(rel)[0] in referenced:
+                    used += 1
+        total_all += size
+        if top == "audio":
+            verdict = "GARDE (sons dans sounds.json)"
+        elif used > 0:
+            verdict = "utilise"
+            if used < nb:
+                alive_partial.append((label, nb - used))
+        else:
+            verdict = "*** JAMAIS DEMANDE ***"
+            total_dead += size
+            dead_dirs.append((label, size))
+        report.append("%-52s %10s %8d %8d   %s" % (label, human(size), nb, used, verdict))
+
+# ---- 3. Synthese ----
+report.append("")
+report.append("===== 3. SYNTHESE =====")
+report.append("poids total de static/assets        : %s" % human(total_all))
+report.append("poids jamais demande par le jeu     : %s" % human(total_dead))
+report.append("")
+report.append("--- dossiers jamais demandes, du plus lourd au plus leger ---")
+for label, size in sorted(dead_dirs, key=lambda x: -x[1]):
+    report.append("%-52s %10s" % (label, human(size)))
+
+if alive_partial:
+    report.append("")
+    report.append("--- dossiers utilises contenant AUSSI des fichiers jamais demandes ---")
+    report.append("(index.ts, .xml, variantes inutilisees - a regarder au cas par cas)")
+    for label, n in alive_partial:
+        report.append("%-52s %d fichier(s) non demande(s)" % (label, n))
+
+# ---- 4. Les index.ts (code source dans static/) ----
+report.append("")
+report.append("===== 4. index.ts perdus dans static (code jamais execute) =====")
+count = 0
+for dirpath, _d, filenames in os.walk(STATIC):
+    for fn in filenames:
+        if fn == "index.ts":
+            count += 1
+report.append("nombre total : %d" % count)
+
+with open("rapport39.txt", "w") as f:
+    f.write("\n".join(report) + "\n")
+print("\n".join(report[-14:]))
+print("")
+print("FINI - aucun fichier touche. Envoyez rapport39.txt")
