@@ -187,15 +187,20 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			stateGame.superlikeAnimationPromise = null;
 		}
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_winlevel_small' });
+		// Presentation du PLUS PETIT au PLUS GROS gain : on finit sur la plus
+		// belle ligne du tour. Copie triee - le tableau du book n'est pas touche,
+		// et les montants / le total sont evidemment inchanges. Le meme ordre
+		// sert aussi a la surbrillance des symboles, pour rester synchronise.
+		const orderedWins = [...bookEvent.wins].sort((a, b) => a.win - b.win);
 		// Instant de depart de la presentation des lignes : sert plus bas a ne
 		// completer que le temps qui manque VRAIMENT a la fin.
 		const winLinesStartedAt = performance.now();
-		if (bookEvent.wins.length > 0) {
+		if (orderedWins.length > 0) {
 			// Affichee tout de suite (pas apres la surbrillance des symboles),
 			// directement quand le 5eme rouleau vient de s'arreter.
-			eventEmitter.broadcast({ type: 'winLinesShow', wins: bookEvent.wins });
+			eventEmitter.broadcast({ type: 'winLinesShow', wins: orderedWins });
 		}
-		await sequence(bookEvent.wins, async (win) => {
+		await sequence(orderedWins, async (win) => {
 			await animateSymbols({ positions: win.positions });
 		});
 		if (bookEvent.wins.length > 0) {
