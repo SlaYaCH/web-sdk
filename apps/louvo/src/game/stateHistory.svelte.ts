@@ -48,7 +48,7 @@ export const captureReplayRound = (bet: unknown) => {
 			stateReplay.payoutMultiplier = raw.payoutMultiplier;
 		stateReplay.loaded = true;
 	} catch (error) {
-		console.error('replay: capture impossible', error);
+		console.error('replay: could not capture the round', error);
 	}
 };
 
@@ -105,6 +105,6 @@ export const recordRound = (bet: unknown) => {
 
 		if (stateHistory.rounds.length > MAX_ROUNDS) stateHistory.rounds.length = MAX_ROUNDS;
 	} catch (error) {
-		console.error('history: enregistrement impossible', error);
+		console.error('history: could not record the round', error);
 	}
 };

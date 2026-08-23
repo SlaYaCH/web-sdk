@@ -264,7 +264,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 <Modals>
 	{#snippet version()}
-		<GameVersion version="0.0.0" />
+		<GameVersion version="1.0.0" />
 	{/snippet}
 	{#snippet gameRules()}
 		{@html `<style>
@@ -439,6 +439,16 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 	<h2>BET</h2>
 	<p>Bet levels range from 0.01 to 1,000 in your selected currency. Bonus buys and other special feature purchases can cost more than the maximum base bet.</p>
+
+	<h2>HOW TO PLAY</h2>
+	<p>Press the round button on the right of the bottom bar to play a round. The space bar does the same thing.</p>
+	<p>The arrows next to the bet amount raise or lower your bet. Your balance is shown on the left of the bar.</p>
+	<p>The button beside the play button starts autoplay. It asks you to choose the number of rounds, a loss limit and a single win limit, and to confirm, before any round is played.</p>
+	<p>The BONUS button opens the feature purchase screen, where every purchase asks for confirmation before it is placed.</p>
+	<p>The three-line button opens the menu. TURBO speeds up the reels and SUPER TURBO speeds them up further. STOP ON WIN halts autoplay as soon as a round pays. HISTORY lists the rounds played in this session. INFO / RULES opens this page. The two sliders set the music and sound effect volume, and either can be turned down to silence.</p>
+
+	<h2>DISCLAIMER</h2>
+	<p>Malfunction voids all wins and plays. A consistent internet connection is required. In the event of a disconnection, reload the game to finish any uncompleted rounds. The expected return is calculated over many plays. The game display is not representative of any physical device and is for illustrative purposes only. Winnings are settled according to the amount received from the Remote Game Server and not from events within the web browser. TM and &copy; 2026 Stake Engine.</p>
 </div>`}
 	{/snippet}
 </Modals>

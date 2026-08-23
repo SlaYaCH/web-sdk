@@ -30,15 +30,36 @@
 		fill: 0xffffff,
 	} as const;
 
-	// Colonnes, en x relatif au centre du panneau
+	// Colonnes, en x relatif au centre du panneau.
+	// TIME, MODE et ROUND ID sont calees a GAUCHE (le x est leur debut) ;
+	// BET, WIN et MULT sont calees a DROITE (le x est leur fin).
+	// Repartition verifiee : plus aucun chevauchement, y compris avec le
+	// mode le plus long et un ROUND ID a 10 chiffres.
 	const COL = {
-		time: -PANEL_WIDTH / 2 + 90,
-		mode: -PANEL_WIDTH / 2 + 260,
-		id: -PANEL_WIDTH / 2 + 470,
-		bet: -PANEL_WIDTH / 2 + 640,
-		win: -PANEL_WIDTH / 2 + 780,
-		mult: -PANEL_WIDTH / 2 + 900,
+		time: -PANEL_WIDTH / 2 + 60,
+		mode: -PANEL_WIDTH / 2 + 250,
+		id: -PANEL_WIDTH / 2 + 410,
+		bet: -PANEL_WIDTH / 2 + 660,
+		win: -PANEL_WIDTH / 2 + 810,
+		mult: -PANEL_WIDTH / 2 + 940,
 	};
+
+	// ------------------------------------------------------------------
+	// Les cles de mode du RGS sont longues : BONUS_SPEED_DATING fait
+	// 18 caracteres et debordait sur la colonne ROUND ID. On les
+	// raccourcit A L'AFFICHAGE seulement - ce qui est enregistre dans
+	// l'historique ne change pas.
+	// ------------------------------------------------------------------
+	const MODE_LISIBLE: Record<string, string> = {
+		BASE: 'BASE',
+		BONUS_SPEED_DATING: 'SPEED DATING',
+		BONUS_AFTER_DARK: 'AFTER DARK',
+	};
+
+	// Repli generique : toute cle inconnue perd son prefixe BONUS_ et ses
+	// tirets bas. Une nouvelle cle cote math restera donc lisible.
+	const modeTexte = (m: string) =>
+		MODE_LISIBLE[m] ?? String(m ?? '').replace(/^BONUS_/, '').replace(/_/g, ' ');
 
 	const rows = $derived(stateHistory.rounds.slice(0, VISIBLE_ROWS));
 	const canReplay = $derived(context.stateXstateDerived.isIdle());
@@ -113,7 +134,7 @@
 					text={round.date + '  ' + round.time}
 					style={CELL}
 				/>
-				<Text x={COL.mode} anchor={{ x: 0, y: 0.5 }} text={round.mode} style={CELL} />
+				<Text x={COL.mode} anchor={{ x: 0, y: 0.5 }} text={modeTexte(round.mode)} style={CELL} />
 				<Text x={COL.id} anchor={{ x: 0, y: 0.5 }} text={round.id} style={CELL} />
 				<Text
 					x={COL.bet}

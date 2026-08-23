@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type Snippet } from 'svelte';
 	import { GlobalStyle } from 'components-ui-html';
-	import { Authenticate, LoaderStakeEngine, LoadI18n } from 'components-shared';
+	import { Authenticate, LoadI18n } from 'components-shared';
 	import Game from '../components/Game.svelte';
 	import LouvoLoaderLogo from '../components/LouvoLoaderLogo.svelte';
 	import { setContext } from '../game/context';
@@ -12,9 +12,12 @@
 
 	const props: Props = $props();
 
-	let showYourLoader = $state(false);
+	// Le loader Stake Engine a ete retire : la checklist d'approbation
+	// l'interdit ("Game should not contain the Stake Engine Loader").
+	// C'est lui qui basculait cette valeur a true une fois termine ;
+	// sans lui, l'ecran de chargement Louvo prend la main des le depart.
+	let showYourLoader = $state(true);
 
-	const loaderUrlStakeEngine = new URL('../../stake-engine-loader.gif', import.meta.url).href;
 	const loaderUrl = new URL('../../louvo_logo.png', import.meta.url).href;
 
 	setContext();
@@ -27,8 +30,6 @@
 		</LoadI18n>
 	</Authenticate>
 </GlobalStyle>
-
-<LoaderStakeEngine src={loaderUrlStakeEngine} oncomplete={() => (showYourLoader = true)} />
 
 {#if showYourLoader}
 	<LouvoLoaderLogo src={loaderUrl} />

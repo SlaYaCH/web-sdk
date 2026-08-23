@@ -175,7 +175,7 @@
 				try {
 					await flyTo(i);
 				} catch (error) {
-					console.error('[SuperLike DEBUG] lancer du coeur', i, 'echoue :', error);
+					console.error('superlike: heart throw', i, 'failed:', error);
 				}
 			}
 			context.stateGame.superlikeActiveThrows -= 1;
