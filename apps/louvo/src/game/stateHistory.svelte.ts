@@ -1,4 +1,4 @@
-import { stateBet } from 'state-shared';
+import { stateBet, stateUi } from 'state-shared';
 import { API_AMOUNT_MULTIPLIER } from 'constants-shared/bet';
 
 // ------------------------------------------------------------------
@@ -30,12 +30,37 @@ let counter = 0;
 
 export const stateHistory = $state({ rounds: [] as HistoryRound[] });
 
+// Round du replay officiel Stake. Capture en amont depuis actor.ts
+// (onResumeGameActive), AVANT que la machine a etats ne remette
+// stateBet.betToResume a null : sinon la barre de replay lit un
+// objet deja efface et croit a tort que l'Event ID est invalide.
+export const stateReplay = $state({
+	payout: null as number | null,
+	payoutMultiplier: null as number | null,
+	loaded: false,
+});
+
+export const captureReplayRound = (bet: unknown) => {
+	try {
+		const raw = bet as { payout?: number; payoutMultiplier?: number };
+		if (typeof raw?.payout === 'number') stateReplay.payout = raw.payout;
+		if (typeof raw?.payoutMultiplier === 'number')
+			stateReplay.payoutMultiplier = raw.payoutMultiplier;
+		stateReplay.loaded = true;
+	} catch (error) {
+		console.error('replay: capture impossible', error);
+	}
+};
+
 const deux = (n: number) => String(n).padStart(2, '0');
 
 export const recordRound = (bet: unknown) => {
 	// Enregistrer l'historique ne doit JAMAIS pouvoir casser un tour :
 	// tout est enferme dans un try/catch.
 	try {
+		// Un round rejoue n'est pas une partie jouee : on ne l'ajoute pas.
+		if (stateUi.config.mode === 'replay') return;
+
 		const raw = bet as {
 			betID?: number | string;
 			roundID?: number | string;

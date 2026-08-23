@@ -18,11 +18,6 @@
 	import SuperlikeHeartThrow from './SuperlikeHeartThrow.svelte';
 	const context = getContext();
 
-	// Reglage lateral des bannieres, en unites de plateau.
-	// 0 = exactement le centre de colonne utilise par les symboles.
-	// Negatif = vers la gauche, positif = vers la droite.
-	const BANNER_X_OFFSET = 0;
-
 	// Plusieurs bannieres (Match Duel/Super Like) peuvent etre actives EN MEME
 	// TEMPS sur le meme spin (ex: 2 MATCH garantis par match_frenzy) - un
 	// tableau au lieu de variables uniques evite qu'une nouvelle banniere
@@ -101,8 +96,8 @@
 					likesBefore: activeReveals
 						.filter((r) => r.assetKey === 'superlikeReveal' && r.epoch === context.stateGame.bannerEpoch)
 						.reduce((sum, r) => sum + r.likes, 0),
-					// Centre de colonne exact, celui des symboles.
-					bannerX: getSymbolX(emitterEvent.reelIndex) + BANNER_X_OFFSET,
+					// Correction fine : bannieres des rouleaux 2-5 ~1mm trop a droite (valeur ajustable).
+					bannerX: getSymbolX(emitterEvent.reelIndex) - (emitterEvent.reelIndex > 0 ? 2 : 0),
 					reelIndex: emitterEvent.reelIndex,
 					closeToken: 0,
 					epoch: context.stateGame.bannerEpoch,

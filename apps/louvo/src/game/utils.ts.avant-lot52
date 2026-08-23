@@ -61,7 +61,9 @@ export const convertTorResumableBet = (betToResume: Bet) => {
 // plus grand) - mesures en jeu par colonne, en % de la largeur totale du
 // plateau (BOARD_SIZES.width). Negatif = vers la gauche, positif = vers la
 // droite. Un seul tableau a modifier si besoin d'affiner encore.
-const AFTER_DARK_COLUMN_ADJUST_FRAC = [-0.035, -0.02, -0.005, 0.015, 0.03];
+// Remis a zero : les reperes propres a chaque palier rendent ces
+// decalages inutiles. Conserves au cas ou il faudrait re-affiner.
+const AFTER_DARK_COLUMN_ADJUST_FRAC = [0, 0, 0, 0, 0];
 
 export const getSymbolX = (reelIndex: number) => {
 	const base = SYMBOL_WIDTH * (reelIndex + REEL_PADDING);

@@ -6,7 +6,6 @@
 <script lang="ts">
 	import { Sprite } from 'pixi-svelte';
 	import { getContext } from '../game/context';
-	import { boardBox } from '../game/boardBox';
 	const context = getContext();
 	const showBaseFrame = $derived(
 		context.stateGame.gameType === 'basegame' || context.stateGame.tier === 'speed_dating',
@@ -21,20 +20,20 @@
 {#if showBaseFrame}
 	<Sprite
 		key="boardFrameOverlay"
-		x={boardBox(context.stateGame.tier).x + boardBox(context.stateGame.tier).width * 0.5}
-		y={boardBox(context.stateGame.tier).y + boardBox(context.stateGame.tier).height * 0.5}
+		x={context.stateLayoutDerived.mainLayout().width * 0.5}
+		y={context.stateLayoutDerived.mainLayout().height * 0.5}
 		anchor={0.5}
-		width={boardBox(context.stateGame.tier).width}
-		height={boardBox(context.stateGame.tier).height}
+		width={context.stateLayoutDerived.mainLayout().width}
+		height={context.stateLayoutDerived.mainLayout().height}
 	/>
 {/if}
 {#if showFeatureFrame}
 	<Sprite
 		key="boardFrameOverlayAfterDark"
-		x={boardBox(context.stateGame.tier).x + boardBox(context.stateGame.tier).width * 0.5}
-		y={boardBox(context.stateGame.tier).y + boardBox(context.stateGame.tier).height * 0.5}
+		x={context.stateLayoutDerived.mainLayout().width * 0.5}
+		y={context.stateLayoutDerived.mainLayout().height * 0.5}
 		anchor={0.5}
-		width={boardBox(context.stateGame.tier).width}
-		height={boardBox(context.stateGame.tier).height}
+		width={context.stateLayoutDerived.mainLayout().width}
+		height={context.stateLayoutDerived.mainLayout().height}
 	/>
 {/if}

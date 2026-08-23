@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 46 : console propre (boardBackground)
+#
+# LE PROBLEME (973 lignes de console analysees) :
+#   Dans Game.svelte, <Background /> est rendu AVANT le bloc de l'ecran
+#   de chargement. Il reclame donc sa texture alors que seuls les assets
+#   du loader sont charges. Pixi previent 6 fois et recrache le catalogue
+#   loadedAssets 159 fois.
+#
+# LA CORRECTION :
+#   <Background /> n'est rendu qu'une fois le chargement termine. Le fond
+#   du <body> est deja noir, donc l'ecran ne devrait pas changer - mais
+#   c'est a VERIFIER a l'oeil (voir plus bas).
+#
+# PRUDENCE : la correction n'est appliquee QUE si Background.svelte est
+# bien le composant qui demande boardBackground. Sinon le script se
+# contente de rapporter ou se trouve la cle, sans rien modifier.
+#
+# POUR REVENIR EN ARRIERE si un noir apparait pendant le chargement :
+#   dans apps/louvo/src/components/Game.svelte, remplacer
+#     {#if !context.stateLayout.showLoadingScreen}<Background />{/if}
+#   par
+#     <Background />
+#
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch46.txt
+#   3) envoyer rapport52.txt
+# ============================================================
+import os
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport52.txt"
+APP = "apps/louvo/src"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    try:
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def main():
+    # ---------- 1. Qui demande boardBackground ? ----------
+    say("===== 1. OU EST DEMANDEE LA CLE boardBackground ? =====")
+    porteurs = []
+    for dirpath, dirnames, filenames in os.walk(APP):
+        dirnames[:] = [d for d in dirnames if d not in ("node_modules", "build", ".svelte-kit")]
+        for fn in filenames:
+            if not fn.endswith((".svelte", ".ts")):
+                continue
+            fp = os.path.join(dirpath, fn)
+            txt = lire(fp) or ""
+            for i, l in enumerate(txt.split("\n"), 1):
+                if "boardBackground" in l:
+                    say("  %s:%d: %s" % (fp, i, l.strip()[:150]))
+                    porteurs.append(fp)
+    if not porteurs:
+        say("  (aucune occurrence - rien a faire)")
+
+    bg = os.path.join(APP, "components", "Background.svelte")
+    dans_background = bg in porteurs
+
+    # ---------- 2. La correction, seulement si c'est bien Background ----------
+    say("")
+    say("===== 2. Game.svelte : rendu du fond apres le chargement =====")
+    g = os.path.join(APP, "components", "Game.svelte")
+    txt = lire(g)
+    if txt is None:
+        say("  Game.svelte introuvable")
+        return False
+
+    nouveau = ("\t{#if !context.stateLayout.showLoadingScreen}\n"
+               "\t\t<Background />\n"
+               "\t{/if}")
+
+    if nouveau in txt:
+        say("  deja applique")
+    elif not dans_background:
+        say("  ARRET PRUDENT : boardBackground n'est pas demande par")
+        say("  Background.svelte. Rien n'a ete modifie - le rapport ci-dessous")
+        say("  montre le vrai porteur, Claude corrigera au bon endroit.")
+    else:
+        n = txt.count("\t<Background />")
+        if n != 1:
+            raise AssertionError("<Background /> trouve %d fois (attendu 1)" % n)
+        with open(g, "w", encoding="utf-8") as f:
+            f.write(txt.replace("\t<Background />", nouveau, 1))
+        say("  OK - <Background /> n'est plus rendu pendant le chargement")
+
+    # ---------- 3. Verification ----------
+    say("")
+    say("===== 3. VERIFICATION =====")
+    apres = lire(g) or ""
+    present = "{#if !context.stateLayout.showLoadingScreen}" in apres
+    say("  garde autour de <Background /> : %s" % ("OK" if present else "non applique"))
+
+    # ---------- 4. Fichiers utiles pour le chantier responsive ----------
+    say("")
+    say("===== 4. POUR LE RESPONSIVE : composants de mise en page =====")
+    for chemin in ("components/Background.svelte",
+                   "components/LoadingScreen.svelte",
+                   "components/BoardFrame.svelte",
+                   "components/BoardContainer.svelte",
+                   "components/Board.svelte",
+                   "components/AfterDarkStreakDisplay.svelte",
+                   "components/FreeSpinCounter.svelte",
+                   "components/BonusWinCounter.svelte",
+                   "game/constants.ts"):
+        p = os.path.join(APP, chemin)
+        contenu = lire(p)
+        say("")
+        say("--------------------------------------------------------------")
+        if contenu is None:
+            say(">>> INTROUVABLE : %s" % p)
+            continue
+        say(">>> %s" % p)
+        say("--------------------------------------------------------------")
+        for i, l in enumerate(contenu.split("\n")[:200], 1):
+            say("%4d| %s" % (i, l))
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - build, puis REGARDEZ L'ECRAN DE CHARGEMENT"
+                     if ok else "ECHEC - envoyez rapport52.txt"))
+print("")
+print("FINI - envoyez rapport52.txt")

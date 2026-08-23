@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 56 : lignes de gain en coordonnees locales
+#
+# LE PROBLEME :
+#   WinLineReveal est rendu DANS BoardContainer (voir WinLinesDisplay),
+#   donc ses coordonnees sont locales au plateau. Or il melangeait :
+#     - getSymbolX(reel)  -> position LOCALE  (correct)
+#     - getSymbolY(rangee) -> position ABSOLUE dans la mise en page
+#   Tant que la boite de cadre valait la mise en page et que l'echelle du
+#   plateau valait 1, des corrections empiriques (p.row - 2, puis - 18)
+#   masquaient l'ecart. En portrait la boite fait 959 de haut au lieu de
+#   1422 et le plateau a une echelle de 1.19 : les deux espaces divergent
+#   et la ligne tombe une case trop bas.
+#
+# LA CORRECTION :
+#   On reprend la convention deja utilisee par SuperlikeHeartThrow, qui
+#   est validee en jeu (les coeurs tombent pile sur les symboles) :
+#     centre de rangee = SYMBOL_HEIGHT * (rangee + REEL_PADDING)
+#   C'est une coordonnee locale, comme getSymbolX. Plus de melange, et
+#   le resultat suit automatiquement l'echelle du plateau.
+#
+# ATTENTION : ceci change AUSSI le bureau. Les corrections empiriques
+# n'y donnaient pas non plus la bonne position - regardez-y en premier.
+# Un reglage WIN_LINE_Y_OFFSET est en place si un nudge est necessaire.
+#
+# SAUVEGARDE : WinLineReveal.svelte.avant-lot56
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch56.txt
+#   3) envoyer rapport63.txt
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport63.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+ANCIEN = """	const points = props.positions.map((p) => {
+		// Confirme en jeu reel (Stake Engine) : chaque ligne s'affichait
+		// systematiquement une case en dessous de sa vraie position, sur
+		// TOUTES les rangees (pas juste la rangee du haut) - decalage d'un
+		// cran de plus par rapport a la version precedente.
+		const rawIndex = p.row - 2;
+		const rowGap = getSymbolY(1) - getSymbolY(0);
+		const y = rawIndex >= 0 ? getSymbolY(rawIndex) - 18 : getSymbolY(0) + rawIndex * rowGap - 18;
+		return {
+			x: getSymbolX(p.reel),
+			y,
+		};
+	});"""
+
+NOUVEAU = """	// Les lignes sont dessinees DANS le conteneur du plateau (voir
+	// WinLinesDisplay) : leurs coordonnees doivent donc etre LOCALES, comme
+	// celles des symboles. getSymbolY renvoie une position ABSOLUE dans la
+	// mise en page ; la melanger avec getSymbolX, qui est locale, donnait un
+	// ecart invisible sur bureau mais d'une case entiere en portrait, ou la
+	// boite de cadre et l'echelle du plateau ne valent plus 1.
+	//
+	// On reprend la convention de SuperlikeHeartThrow, validee en jeu (les
+	// coeurs tombent pile sur les symboles) :
+	//     centre de rangee = SYMBOL_HEIGHT * (rangee + REEL_PADDING)
+	const WIN_LINE_Y_OFFSET = 0; // nudge fin, en unites de plateau
+	const points = props.positions.map((p) => ({
+		x: getSymbolX(p.reel),
+		y: SYMBOL_HEIGHT * (p.row + REEL_PADDING) + WIN_LINE_Y_OFFSET,
+	}));"""
+
+
+def main():
+    p = "apps/louvo/src/components/WinLineReveal.svelte"
+    s = p + ".avant-lot56"
+    if not os.path.exists(s):
+        shutil.copyfile(p, s)
+    txt = open(p, encoding="utf-8").read()
+
+    say("===== 1. WinLineReveal.svelte : coordonnees locales =====")
+    if "WIN_LINE_Y_OFFSET" in txt:
+        say("  deja applique")
+    else:
+        n = txt.count(ANCIEN)
+        if n != 1:
+            raise AssertionError("bloc de calcul des points trouve %d fois (attendu 1)" % n)
+        txt = txt.replace(ANCIEN, NOUVEAU, 1)
+
+        vieil_import = "\timport { getSymbolX, getSymbolY } from '../game/utils';"
+        if txt.count(vieil_import) != 1:
+            raise AssertionError("ligne d'import introuvable - rien enregistre")
+        txt = txt.replace(
+            vieil_import,
+            "\timport { getSymbolX } from '../game/utils';\n"
+            "\timport { SYMBOL_HEIGHT, REEL_PADDING } from '../game/constants';",
+            1)
+
+        # On cherche l'APPEL, pas le mot : il apparait dans le commentaire
+        # explicatif qu'on vient d'ecrire.
+        if "getSymbolY(" in txt:
+            raise AssertionError("il reste un appel a getSymbolY( - rien enregistre")
+
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(txt)
+        say("  bloc de calcul remplace")
+        say("  import corrige (getSymbolY retire, SYMBOL_HEIGHT/REEL_PADDING ajoutes)")
+
+    say("")
+    say("===== 2. VERIFICATION =====")
+    apres = open(p, encoding="utf-8").read()
+    tout_ok = True
+    for motif, attendu in (("WIN_LINE_Y_OFFSET", True),
+                           ("SYMBOL_HEIGHT * (p.row + REEL_PADDING)", True),
+                           ("getSymbolY(", False),
+                           ("p.row - 2", False)):
+        present = motif in apres
+        if present != attendu:
+            tout_ok = False
+        say("  %-46s %-8s %s" % (motif, "present" if present else "absent",
+                                 "OK" if present == attendu else "*** ECHEC ***"))
+
+    say("")
+    say("===== 3. POSITION DES LIGNES, EN UNITES DE PLATEAU =====")
+    say("  (le centre d'une rangee, tel que le voient les symboles)")
+    say("  %-8s %12s" % ("rangee", "y local"))
+    for r in range(5):
+        say("  %-8d %12.1f" % (r + 1, 91 * (r + 0.53)))
+    say("")
+    say("  hauteur totale du plateau : %d   (5 rangees de 91)" % (91 * 5))
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - build, puis verifiez BUREAU puis mobile"
+                     if ok else "ECHEC - envoyez rapport63.txt"))
+print("")
+print("FINI - envoyez rapport63.txt")

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Container } from 'pixi-svelte';
 	import { getContext } from '../game/context';
-	import { boardBox } from '../game/boardBox';
 	import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC, GRID_TOP_FRAC, GRID_BOTTOM_FRAC } from '../game/constants';
 	import AfterDarkStreakGroup from './AfterDarkStreakGroup.svelte';
 
@@ -35,38 +34,6 @@
 	const groupY = (i: number) =>
 		mainH() * (GRID_TOP_FRAC + (GRID_BOTTOM_FRAC - GRID_TOP_FRAC) * GROUP_Y_FRACS[i]);
 
-	// ============================================================
-	// PORTRAIT : les presentoirs ne tiennent pas a cote de la grille,
-	// ils la chevauchent et sortent de l'ecran. On les reduit et on les
-	// descend dans l'espace libre sous le cadre, en deux rangees de deux.
-	// REGLAGES A AJUSTER A L'OEIL :
-	// ============================================================
-	const PORTRAIT_SCALE = 0.72; // 28% plus petit
-	const PORTRAIT_X_FRAC = 0.26; // ecart des colonnes, en largeur d'ecran
-	const PORTRAIT_MARGE_HAUT = 130; // espace entre le bas du cadre et la 1re rangee
-	const PORTRAIT_ECART_RANGEES = 150; // ecart vertical entre les deux rangees
-	// ============================================================
-
-	const estPortrait = $derived(
-		['portrait', 'tablet'].includes(context.stateLayoutDerived.layoutType()),
-	);
-	const box = $derived(boardBox(context.stateGame.tier));
-
-	const posX = (droite: boolean) =>
-		estPortrait
-			? mainW() * (0.5 + (droite ? PORTRAIT_X_FRAC : -PORTRAIT_X_FRAC))
-			: droite
-				? rightX()
-				: leftX();
-	const posY = (i: number) =>
-		estPortrait
-			? box.y +
-				box.height * GRID_BOTTOM_FRAC +
-				PORTRAIT_MARGE_HAUT +
-				i * PORTRAIT_ECART_RANGEES
-			: groupY(i);
-	const echelle = $derived(estPortrait ? PORTRAIT_SCALE : 1);
-
 	const t2 = () => props.tier2 ?? { filled: 0, achieved: false };
 	const t3 = () => props.tier3 ?? { filled: 0, achieved: false };
 	const t4 = () => props.tier4 ?? { filled: 0, achieved: false };
@@ -74,7 +41,7 @@
 </script>
 
 {#if context.stateGame.tier === 'after_dark'}
-	<Container x={posX(false)} y={posY(0)} scale={echelle}>
+	<Container x={leftX()} y={groupY(0)}>
 		<AfterDarkStreakGroup
 			filled={t2().filled}
 			duelCardKey="duelPlus2"
@@ -87,7 +54,7 @@
 			gap={GAP}
 		/>
 	</Container>
-	<Container x={posX(false)} y={posY(1)} scale={echelle}>
+	<Container x={leftX()} y={groupY(1)}>
 		<AfterDarkStreakGroup
 			filled={t3().filled}
 			duelCardKey="duelPlus3"
@@ -100,7 +67,7 @@
 			gap={GAP}
 		/>
 	</Container>
-	<Container x={posX(true)} y={posY(0)} scale={echelle}>
+	<Container x={rightX()} y={groupY(0)}>
 		<AfterDarkStreakGroup
 			filled={t4().filled}
 			duelCardKey="duelPlus4"
@@ -113,7 +80,7 @@
 			gap={GAP}
 		/>
 	</Container>
-	<Container x={posX(true)} y={posY(1)} scale={echelle}>
+	<Container x={rightX()} y={groupY(1)}>
 		<AfterDarkStreakGroup
 			filled={t5x().filled}
 			duelCardKey="duel5x"

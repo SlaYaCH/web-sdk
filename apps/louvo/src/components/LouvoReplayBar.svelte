@@ -6,6 +6,7 @@
 	import { numberToCurrencyString } from 'utils-shared/amount';
 
 	import { getContext } from '../game/context';
+	import { stateReplay } from '../game/stateHistory.svelte';
 
 	const context = getContext();
 
@@ -66,19 +67,25 @@
 	// au lieu de laisser un ecran fige.
 	onMount(() => {
 		const timer = setTimeout(() => {
-			if (!seenRound) timedOut = true;
+			if (!seenRound && !stateReplay.loaded) timedOut = true;
 		}, 6000);
 		return () => clearTimeout(timer);
 	});
 
+	// La capture faite dans actor.ts prime : elle arrive toujours, alors que
+	// betToResume peut avoir ete efface avant qu'on ait pu le lire.
+	const ready = $derived(stateReplay.loaded || seenRound);
+	const effPayout = $derived(stateReplay.payout ?? payout);
+	const effMultiplier = $derived(stateReplay.payoutMultiplier ?? payoutMultiplier);
+
 	const betText = $derived(numberToCurrencyString(stateBet.betAmount));
 	const winText = $derived(
-		payout === null ? '-' : numberToCurrencyString(payout / API_AMOUNT_MULTIPLIER),
+		effPayout === null ? '-' : numberToCurrencyString(effPayout / API_AMOUNT_MULTIPLIER),
 	);
 	const multiplierText = $derived.by(() => {
-		if (payoutMultiplier !== null) return `${payoutMultiplier.toFixed(2)}x`;
-		if (payout !== null && stateBet.betAmount > 0)
-			return `${(payout / API_AMOUNT_MULTIPLIER / stateBet.betAmount).toFixed(2)}x`;
+		if (effMultiplier !== null) return `${effMultiplier.toFixed(2)}x`;
+		if (effPayout !== null && stateBet.betAmount > 0)
+			return `${(effPayout / API_AMOUNT_MULTIPLIER / stateBet.betAmount).toFixed(2)}x`;
 		return '-';
 	});
 
@@ -120,7 +127,7 @@
 		style={{ fontFamily: 'proxima-nova', fontWeight: '700', fontSize: 20, fill: 0xff2d6a }}
 	/>
 
-	{#if timedOut}
+	{#if timedOut && !ready}
 		<Text
 			anchor={0.5}
 			text="REPLAY UNAVAILABLE - CHECK THE EVENT ID"

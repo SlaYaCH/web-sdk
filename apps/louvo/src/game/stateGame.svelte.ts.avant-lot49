@@ -1,4 +1,4 @@
-import { GRID_FRACS } from './constants';
+import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC, GRID_TOP_FRAC, GRID_BOTTOM_FRAC } from './constants';
 import _ from 'lodash';
 import type { Tween } from 'svelte/motion';
 
@@ -8,7 +8,6 @@ import { createGetWinLevelDataByWinLevelAlias } from 'utils-shared/winLevel';
 
 import type { GameType, RawSymbol, SymbolState } from './types';
 import { stateLayoutDerived } from './stateLayout';
-import { boardBox, gridFracs } from './boardBox';
 import { winLevelMap } from './winLevelMap';
 import { eventEmitter } from './eventEmitter';
 import {
@@ -113,17 +112,11 @@ const AFTER_DARK_Y_ADJUST_FRAC = 0.005;
 
 const boardLayout = () => {
 	const afterDarkYAdjust = stateGame.tier === 'after_dark' ? AFTER_DARK_Y_ADJUST_FRAC : 0;
-	// La grille se repere sur la boite de cadre, plus sur mainLayout().
-	// En paysage la boite vaut la mise en page (x=0, y=0, scale=1) :
-	// ces formules redonnent exactement les anciennes.
-	const box = boardBox(stateGame.tier);
-	const f = gridFracs(stateGame.tier);
 	return {
-		x: box.x + box.width * ((f.left + f.right) / 2),
-		y: box.y + box.height * ((f.top + f.bottom) / 2 + afterDarkYAdjust),
-		// Deux echelles : les cellules d'After Dark n'ont pas la meme forme
-		// que celles de base. Pixi accepte un objet pour scale.
-		scale: { x: box.scaleX, y: box.scaleY },
+		x: stateLayoutDerived.mainLayout().width * ((GRID_LEFT_FRAC + GRID_RIGHT_FRAC) / 2),
+		y:
+			stateLayoutDerived.mainLayout().height *
+			((GRID_TOP_FRAC + GRID_BOTTOM_FRAC) / 2 + afterDarkYAdjust),
 		anchor: { x: 0.5, y: 0.5 },
 		pivot: { x: BOARD_SIZES.width / 2, y: BOARD_SIZES.height / 2 },
 		...BOARD_SIZES,

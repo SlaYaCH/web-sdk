@@ -21,20 +21,20 @@
 {#if showBaseFrame}
 	<Sprite
 		key="boardFrameOverlay"
-		x={boardBox(context.stateGame.tier).x + boardBox(context.stateGame.tier).width * 0.5}
-		y={boardBox(context.stateGame.tier).y + boardBox(context.stateGame.tier).height * 0.5}
+		x={boardBox().x + boardBox().width * 0.5}
+		y={boardBox().y + boardBox().height * 0.5}
 		anchor={0.5}
-		width={boardBox(context.stateGame.tier).width}
-		height={boardBox(context.stateGame.tier).height}
+		width={boardBox().width}
+		height={boardBox().height}
 	/>
 {/if}
 {#if showFeatureFrame}
 	<Sprite
 		key="boardFrameOverlayAfterDark"
-		x={boardBox(context.stateGame.tier).x + boardBox(context.stateGame.tier).width * 0.5}
-		y={boardBox(context.stateGame.tier).y + boardBox(context.stateGame.tier).height * 0.5}
+		x={boardBox().x + boardBox().width * 0.5}
+		y={boardBox().y + boardBox().height * 0.5}
 		anchor={0.5}
-		width={boardBox(context.stateGame.tier).width}
-		height={boardBox(context.stateGame.tier).height}
+		width={boardBox().width}
+		height={boardBox().height}
 	/>
 {/if}

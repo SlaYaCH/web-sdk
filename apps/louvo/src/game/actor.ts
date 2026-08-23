@@ -8,11 +8,16 @@ import type { Bet } from './typesBookEvent';
 import { stateXstateDerived } from './stateXstate';
 import { playBet, convertTorResumableBet } from './utils';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
-import { recordRound } from './stateHistory.svelte';
+import { recordRound, captureReplayRound } from './stateHistory.svelte';
 import config from './config';
 
 const primaryMachines = createPrimaryMachines<Bet>({
-	onResumeGameActive: (betToResume) => convertTorResumableBet(betToResume),
+	onResumeGameActive: (betToResume) => {
+		// Replay officiel Stake : le round brut passe ICI, avec payout et
+		// payoutMultiplier, avant que resumeGame ne vide stateBet.betToResume.
+		captureReplayRound(betToResume);
+		return convertTorResumableBet(betToResume);
+	},
 	onResumeGameInactive: (betToResume) => {
 		const lastRevealEvent = _.findLast(
 			betToResume.state,

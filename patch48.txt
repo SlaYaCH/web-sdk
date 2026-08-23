@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 48 : le fond decouple de la boite de jeu
+#
+# L'IDEE (la votre) : separer le fond du cadre, comme le font les jeux
+# Hacksaw. Le SDK sait deja le faire - createLayout expose
+# normalBackgroundLayout(), qui pose une image a son RATIO NATIF en
+# couvrant tout le canvas, recadree sur les cotes plutot qu'ecrasee.
+# Et stateLayout.ts declare deja backgroundRatio.normal = 1672/941.
+#
+# Or Background.svelte ignorait cette fonction : il etirait le fond sur
+# mainLayout(), donc le fond se deformait avec la boite de jeu (ratio
+# 0.563 en portrait contre 1.777 pour l'image).
+#
+# APRES CE PATCH : le fond couvre l'ecran a son ratio, en portrait comme
+# en paysage. Le cadre et la grille ne bougent pas encore - c'est l'etape
+# suivante, et elle demandera vos captures.
+#
+# L'ANCIENNE VERSION EST SAUVEGARDEE dans Background.svelte.avant-lot48
+#
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch48.txt
+#   3) envoyer rapport54.txt
+# ============================================================
+import os
+import re
+import struct
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport54.txt"
+report = []
+
+NOUVEAU_BACKGROUND = """<script lang="ts">
+\timport { Rectangle, Sprite } from 'pixi-svelte';
+\timport { FadeContainer } from 'components-pixi';
+\timport { SECOND } from 'constants-shared/time';
+\timport { getContext } from '../game/context';
+\tconst context = getContext();
+\tconst showBaseBackground = $derived(
+\t\tcontext.stateGame.gameType === 'basegame' || context.stateGame.tier === 'speed_dating',
+\t);
+\tconst showFeatureBackground = $derived(context.stateGame.tier === 'after_dark');
+
+\t// Le fond est desormais INDEPENDANT de la boite de jeu.
+\t// normalBackgroundLayout() le pose a son ratio natif (1672/941, declare
+\t// dans stateLayout.ts) en couvrant tout le canvas : recadre sur les cotes
+\t// plutot qu'ecrase. Avant, il etait etire sur mainLayout(), dont le ratio
+\t// vaut 0.563 en portrait - d'ou la deformation.
+\t// Il sort donc de MainContainer, qui appliquait l'echelle de la boite.
+\tconst backgroundLayout = $derived(
+\t\tcontext.stateLayoutDerived.normalBackgroundLayout({ scale: 1 }),
+\t);
+</script>
+
+<Rectangle {...context.stateLayoutDerived.canvasSizes()} backgroundColor={0x000000} zIndex={-3} />
+
+<FadeContainer show={showBaseBackground} duration={SECOND} zIndex={-2}>
+\t<Sprite key="boardBackground" {...backgroundLayout} anchor={0.5} />
+</FadeContainer>
+
+<FadeContainer show={showFeatureBackground} duration={SECOND} zIndex={-1}>
+\t<Sprite key="boardBackgroundAfterDark" {...backgroundLayout} anchor={0.5} />
+</FadeContainer>
+"""
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def dimensions(path):
+    """Taille en pixels d'un PNG ou d'un WebP, sans dependance externe."""
+    try:
+        with open(path, "rb") as f:
+            tete = f.read(40)
+    except OSError:
+        return None
+    if tete[:8] == b"\x89PNG\r\n\x1a\n" and tete[12:16] == b"IHDR":
+        w, h = struct.unpack(">II", tete[16:24])
+        return (w, h)
+    if tete[:4] == b"RIFF" and tete[8:12] == b"WEBP":
+        bloc = tete[12:16]
+        if bloc == b"VP8X":
+            w = int.from_bytes(tete[24:27], "little") + 1
+            h = int.from_bytes(tete[27:30], "little") + 1
+            return (w, h)
+        if bloc == b"VP8 ":
+            w = int.from_bytes(tete[26:28], "little") & 0x3FFF
+            h = int.from_bytes(tete[28:30], "little") & 0x3FFF
+            return (w, h)
+        if bloc == b"VP8L":
+            b = tete[21:26]
+            n = int.from_bytes(b, "little")
+            return ((n & 0x3FFF) + 1, ((n >> 14) & 0x3FFF) + 1)
+    return None
+
+
+def main():
+    say("===== 1. Background.svelte : fond decouple =====")
+    p = "apps/louvo/src/components/Background.svelte"
+    actuel = open(p, encoding="utf-8").read()
+
+    if "normalBackgroundLayout" in actuel:
+        say("  deja applique")
+    else:
+        sauvegarde = p + ".avant-lot48"
+        if not os.path.exists(sauvegarde):
+            with open(sauvegarde, "w", encoding="utf-8") as f:
+                f.write(actuel)
+            say("  ancienne version sauvegardee : %s" % os.path.basename(sauvegarde))
+        # garde-fou : on ne remplace que le fichier attendu
+        if "boardBackground" not in actuel or "MainContainer" not in actuel:
+            raise AssertionError("Background.svelte n'a pas la forme attendue - rien n'a ete ecrit")
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(NOUVEAU_BACKGROUND)
+        say("  reecrit : le fond couvre le canvas a son ratio natif")
+
+    say("")
+    say("===== 2. VERIFICATION =====")
+    apres = open(p, encoding="utf-8").read()
+    for motif, attendu in (("normalBackgroundLayout", True), ("<MainContainer>", False)):
+        present = motif in apres
+        say("  %-28s %-8s %s" % (motif, "present" if present else "absent",
+                                 "OK" if present == attendu else "*** ECHEC ***"))
+
+    # ---------- 3. Dimensions natives des images ----------
+    say("")
+    say("===== 3. DIMENSIONS NATIVES DES IMAGES DE DECOR =====")
+    say("(necessaires pour decoupler le CADRE a l'etape suivante)")
+    say("")
+    say("%-62s %14s %8s" % ("fichier", "taille px", "ratio"))
+    base = "apps/louvo/static/assets"
+    motifs = re.compile(r"background|frame|board|screen", re.IGNORECASE)
+    trouves = 0
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [d for d in dirnames if d not in ("audio", "fonts")]
+        for fn in sorted(filenames):
+            if not fn.lower().endswith((".png", ".webp")):
+                continue
+            if not motifs.search(fn):
+                continue
+            fp = os.path.join(dirpath, fn)
+            d = dimensions(fp)
+            rel = fp.replace(base + "/", "")
+            if d:
+                say("%-62s %14s %8.3f" % (rel, "%d x %d" % d, d[0] / float(d[1])))
+            else:
+                say("%-62s %14s" % (rel, "(illisible)"))
+            trouves += 1
+    if not trouves:
+        say("  (aucun fichier correspondant)")
+
+    say("")
+    say("--- ce que assets.ts declare pour le decor ---")
+    a = open("apps/louvo/src/game/assets.ts", encoding="utf-8").read().split("\n")
+    for i, l in enumerate(a, 1):
+        if re.search(r"boardBackground|boardFrameOverlay|louvoLogo|loadingScreen", l):
+            say("%4d| %s" % (i, l.strip()[:160]))
+            for j in range(i, min(i + 4, len(a))):
+                if "url" in a[j] or "src" in a[j]:
+                    say("     | %s" % a[j].strip()[:160])
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - build, puis REGARDEZ LE FOND en portrait ET en paysage"
+                     if ok else "ECHEC - envoyez rapport54.txt"))
+print("")
+print("FINI - envoyez rapport54.txt")

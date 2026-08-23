@@ -25,11 +25,7 @@
 		Math.min(1, (context.stateLayoutDerived.mainLayoutStandard().width - 40) / BAR_WIDTH),
 	);
 
-	// Le BONUS est pose AU-DESSUS du bouton 3 traits : meme colonne que
-	// MENU_X, remonte au-dessus de la barre. Il debordait a gauche avant,
-	// et sortait de l'ecran sur petit format.
-	const BONUS_X = BAR_WIDTH * 0.116 - BAR_WIDTH / 2;
-	const BONUS_Y_OFFSET = -118;
+	const BONUS_X = -BAR_WIDTH / 2 - 45; // juste a gauche de la barre, reste dans le cadre visible
 	const MENU_X = BAR_WIDTH * 0.116 - BAR_WIDTH / 2;
 	const BALANCE_X = BAR_WIDTH * 0.331 - BAR_WIDTH / 2;
 	const STEPPER_ARROWS_X = BAR_WIDTH * 0.623 - BAR_WIDTH / 2;
@@ -144,7 +140,7 @@
 	<!-- Bonus -->
 	<Container
 		x={BONUS_X}
-		y={ROW_Y + BONUS_Y_OFFSET}
+		y={ROW_Y}
 		eventMode={bonusDisabled ? 'none' : 'static'}
 		cursor={bonusDisabled ? 'not-allowed' : 'pointer'}
 		alpha={bonusDisabled ? 0.5 : 1}

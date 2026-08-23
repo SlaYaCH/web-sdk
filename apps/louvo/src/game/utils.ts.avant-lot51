@@ -1,4 +1,4 @@
-import { ROW_CENTERS_FRACS } from './constants';
+import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC } from './constants';
 import { stateLayoutDerived } from './stateLayout';
 import { boardBox } from './boardBox';
 import _ from 'lodash';
@@ -80,12 +80,8 @@ const ROW_CENTERS_FRAC = [
 	(557 + 657) / 2 / 941,
 ];
 
-export const getSymbolY = (symbolIndexOfBoard: number) => {
-	const box = boardBox(stateGame.tier);
-	const centres =
-		stateGame.tier === 'after_dark' ? ROW_CENTERS_FRACS.afterDark : ROW_CENTERS_FRACS.base;
-	return box.y + box.height * centres[symbolIndexOfBoard];
-};
+export const getSymbolY = (symbolIndexOfBoard: number) =>
+	boardBox().y + boardBox().height * ROW_CENTERS_FRAC[symbolIndexOfBoard];
 
 export const getSymbolInfo = ({
 	rawSymbol,

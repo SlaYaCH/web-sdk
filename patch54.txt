@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 54 : les cadres de suspense cales sur la grille
+#
+# LE PROBLEME, mesure :
+#   - largeur : le code supposait une colonne de SYMBOL_SIZE = 120,
+#     alors que la vraie colonne du cadre fait 114.8 sur bureau. L'ecart
+#     s'accumulait colonne apres colonne, d'ou le decalage manuel de
+#     20 px (ANTICIPATION_X_CORRECTION) qui rattrapait mal.
+#   - hauteur : SYMBOL_SIZE * 5 = 600 pour une grille de 448. Le cadre
+#     depassait donc de 76 px en haut ET en bas. Invisible tant que le
+#     decor le masquait, evident depuis le decoupage.
+#
+# LA CORRECTION : largeur, hauteur et position viennent de la boite de
+# cadre et des reperes de grille du palier courant - les memes que ceux
+# qui placent les symboles. Le decalage manuel disparait.
+#
+# Deux reglages en tete de fichier si le halo du spine a besoin de
+# respirer un peu (1.0 = exactement la colonne / la grille).
+#
+# SAUVEGARDE : Anticipation.svelte.avant-lot54
+#
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch54.txt
+#   3) envoyer rapport61.txt
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport61.txt"
+report = []
+files = {}
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def load(p):
+    if p not in files:
+        s = p + ".avant-lot54"
+        if not os.path.exists(s):
+            shutil.copyfile(p, s)
+        with open(p, "r", encoding="utf-8") as f:
+            files[p] = f.read()
+    return files[p]
+
+
+def rep(p, old, new, tag):
+    txt = load(p)
+    if new in txt:
+        say("  %-46s deja applique" % tag)
+        return
+    n = txt.count(old)
+    if n != 1:
+        raise AssertionError("%s : motif trouve %d fois (attendu 1) dans %s" % (tag, n, p))
+    files[p] = txt.replace(old, new, 1)
+    say("  %-46s OK" % tag)
+
+
+GEOMETRIE = """\t// ============================================================
+\t// Le cadre de suspense se cale sur la GEOMETRIE REELLE de la grille,
+\t// pas sur une taille de symbole supposee. Il utilise exactement les
+\t// memes reperes que ceux qui placent les symboles, donc il tombe pile
+\t// sur sa colonne quelle que soit la resolution et le palier.
+\t//
+\t// REGLAGES : 1.0 = exactement la colonne / la hauteur de grille.
+\t// Montez un peu si le halo du spine a besoin de respirer.
+\tconst ANTICIPATION_LARGEUR = 1.0;
+\tconst ANTICIPATION_HAUTEUR = 1.0;
+
+\tconst box = $derived(boardBox(context.stateGame.tier));
+\tconst f = $derived(gridFracs(context.stateGame.tier));
+\tconst largeurColonne = $derived(((f.right - f.left) / 5) * box.width);
+\tconst hauteurGrille = $derived((f.bottom - f.top) * box.height);
+\tconst centreGrilleY = $derived(box.y + box.height * ((f.top + f.bottom) / 2));
+\tconst centreColonne = (reelIndex: number) =>
+\t\tbox.x + box.width * f.left + largeurColonne * (reelIndex + 0.5);"""
+
+
+def main():
+    p = "apps/louvo/src/components/Anticipation.svelte"
+    load(p)
+
+    say("===== 1. Anticipation.svelte : geometrie reelle =====")
+    rep(p,
+        "\timport { REEL_PADDING, SYMBOL_SIZE } from '../game/constants';",
+        "\timport { REEL_PADDING, SYMBOL_SIZE } from '../game/constants';\n"
+        "\timport { boardBox, gridFracs } from '../game/boardBox';",
+        "import boardBox et gridFracs")
+
+    rep(p,
+        "\t// Correction fine du cadre d'anticipation (il penche a droite sur la grille).\n"
+        "\t// Ajustez ce coefficient : plus grand = plus a gauche.\n"
+        "\tconst ANTICIPATION_X_CORRECTION = SYMBOL_SIZE * 0.17;",
+        GEOMETRIE,
+        "geometrie a la place du decalage manuel")
+
+    rep(p,
+        "\twidth={SYMBOL_SIZE * 1.0}\n"
+        "\theight={SYMBOL_SIZE * 5}\n"
+        "\tx={context.stateGameDerived.boardLayout().x -\n"
+        "\t\tcontext.stateGameDerived.boardLayout().width * 0.5 +\n"
+        "\t\t(props.reel.reelIndex + REEL_PADDING) * SYMBOL_SIZE -\n"
+        "\t\tANTICIPATION_X_CORRECTION}\n"
+        "\ty={context.stateGameDerived.boardLayout().y - SYMBOL_SIZE * 0.06}",
+        "\twidth={largeurColonne * ANTICIPATION_LARGEUR}\n"
+        "\theight={hauteurGrille * ANTICIPATION_HAUTEUR}\n"
+        "\tx={centreColonne(props.reel.reelIndex)}\n"
+        "\ty={centreGrilleY}",
+        "taille et position du cadre")
+
+    for chemin, contenu in files.items():
+        with open(chemin, "w", encoding="utf-8") as f:
+            f.write(contenu)
+
+    say("")
+    say("===== 2. VERIFICATION =====")
+    apres = open(p, encoding="utf-8").read()
+    tout_ok = True
+    for motif, attendu in (("centreColonne", True), ("ANTICIPATION_HAUTEUR", True),
+                           ("ANTICIPATION_X_CORRECTION", False),
+                           ("SYMBOL_SIZE * 5", False)):
+        present = motif in apres
+        if present != attendu:
+            tout_ok = False
+        say("  %-40s %-8s %s" % (motif, "present" if present else "absent",
+                                 "OK" if present == attendu else "*** ECHEC ***"))
+
+    say("")
+    say("===== 3. AVANT / APRES, EN UNITES DE MISE EN PAGE =====")
+    L, R = 491 / 1672.0, 1166 / 1672.0
+    T, B = 130 / 941.0, 657 / 941.0
+    for nom, bw, bh in (("bureau 1422x800", 1422.0, 800.0), ("paysage 1600x900", 1600.0, 900.0)):
+        colw = ((R - L) / 5) * bw
+        gh = (B - T) * bh
+        say("  %s" % nom)
+        say("     hauteur du cadre : %.0f  ->  %.0f   (grille : %.0f)" % (120 * 5, gh, gh))
+        say("     largeur de colonne supposee %.0f  ->  reelle %.1f" % (120, colw))
+        for i in range(5):
+            ancien = bw * ((L + R) / 2) - 290 + (i + 0.53) * 120 - 120 * 0.17
+            nouveau = bw * L + colw * (i + 0.5)
+            say("     colonne %d : x %7.1f  ->  %7.1f   (ecart %+.1f)"
+                % (i + 1, ancien, nouveau, nouveau - ancien))
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - build" if ok else "ECHEC - envoyez rapport61.txt"))
+print("")
+print("FINI - envoyez rapport61.txt")

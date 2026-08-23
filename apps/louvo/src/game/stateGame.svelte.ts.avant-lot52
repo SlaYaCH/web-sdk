@@ -109,7 +109,7 @@ export const stateGame = $state({
 });
 
 // 0,5% - descend tout le bloc en After Dark (cadre plus grand que la base)
-const AFTER_DARK_Y_ADJUST_FRAC = 0.005;
+const AFTER_DARK_Y_ADJUST_FRAC = 0;
 
 const boardLayout = () => {
 	const afterDarkYAdjust = stateGame.tier === 'after_dark' ? AFTER_DARK_Y_ADJUST_FRAC : 0;

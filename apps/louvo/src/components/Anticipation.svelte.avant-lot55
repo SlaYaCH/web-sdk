@@ -24,7 +24,7 @@
 	// REGLAGES : 1.0 = exactement la colonne / la hauteur de grille.
 	// Montez un peu si le halo du spine a besoin de respirer.
 	const ANTICIPATION_LARGEUR = 1.0;
-	const ANTICIPATION_HAUTEUR = 1.06;
+	const ANTICIPATION_HAUTEUR = 1.0;
 
 	const box = $derived(boardBox(context.stateGame.tier));
 	const f = $derived(gridFracs(context.stateGame.tier));

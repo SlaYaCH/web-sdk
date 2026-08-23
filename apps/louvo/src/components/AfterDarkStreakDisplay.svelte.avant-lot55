@@ -43,7 +43,7 @@
 	// ============================================================
 	const PORTRAIT_SCALE = 0.72; // 28% plus petit
 	const PORTRAIT_X_FRAC = 0.26; // ecart des colonnes, en largeur d'ecran
-	const PORTRAIT_MARGE_HAUT = 130; // espace entre le bas du cadre et la 1re rangee
+	const PORTRAIT_MARGE_HAUT = 40; // espace entre le bas du cadre et la 1re rangee
 	const PORTRAIT_ECART_RANGEES = 150; // ecart vertical entre les deux rangees
 	// ============================================================
 

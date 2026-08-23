@@ -150,45 +150,7 @@ export const SCATTER_LAND_SOUND_MAP = {
 // pas une taille de symbole arbitraire.
 const GRID_SOURCE_WIDTH = 1672;
 const GRID_SOURCE_HEIGHT = 941;
-
-// Mesures dans les IMAGES DE CADRE en detectant les lignes de separation
-// dorees. Chaque palier a son propre cadre, donc ses propres reperes.
-// Anciennes mesures, celles des cadres d'origine. Les deux paliers
-// partagent les memes reperes : c'est l'ajustement vertical et les
-// decalages par colonne qui rattrapent la difference de cadre en
-// After Dark, comme avant le lot 51.
-export const GRID_FRACS = {
-	base: {
-		left: 491 / GRID_SOURCE_WIDTH,
-		right: 1166 / GRID_SOURCE_WIDTH,
-		top: 130 / GRID_SOURCE_HEIGHT,
-		bottom: 657 / GRID_SOURCE_HEIGHT,
-	},
-	afterDark: {
-		left: 491 / GRID_SOURCE_WIDTH,
-		right: 1166 / GRID_SOURCE_WIDTH,
-		top: 130 / GRID_SOURCE_HEIGHT,
-		bottom: 657 / GRID_SOURCE_HEIGHT,
-	},
-} as const;
-
-// Centres exacts de chaque rangee, mesures dans l'image d'origine.
-const CENTRES_ORIGINE = [
-	(130 + 233) / 2 / GRID_SOURCE_HEIGHT,
-	(237 + 340) / 2 / GRID_SOURCE_HEIGHT,
-	(343 + 446) / 2 / GRID_SOURCE_HEIGHT,
-	(450 + 554) / 2 / GRID_SOURCE_HEIGHT,
-	(557 + 657) / 2 / GRID_SOURCE_HEIGHT,
-];
-
-export const ROW_CENTERS_FRACS = {
-	base: CENTRES_ORIGINE,
-	afterDark: CENTRES_ORIGINE,
-};
-
-// Conserves pour les composants qui les importent encore (presentoirs
-// After Dark) : ce sont les valeurs du cadre de base.
-export const GRID_LEFT_FRAC = GRID_FRACS.base.left;
-export const GRID_RIGHT_FRAC = GRID_FRACS.base.right;
-export const GRID_TOP_FRAC = GRID_FRACS.base.top;
-export const GRID_BOTTOM_FRAC = GRID_FRACS.base.bottom;
+export const GRID_LEFT_FRAC = 491 / GRID_SOURCE_WIDTH;
+export const GRID_RIGHT_FRAC = 1166 / GRID_SOURCE_WIDTH;
+export const GRID_TOP_FRAC = 130 / GRID_SOURCE_HEIGHT;
+export const GRID_BOTTOM_FRAC = 657 / GRID_SOURCE_HEIGHT;

@@ -63,6 +63,14 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		);
 	};
 
+	// Le nom du jeu et le logo sont eux aussi poses en pixels de canvas
+	// bruts, hors MainContainer. Sur un petit ecran ils prennent une place
+	// enorme et chevauchent l'enseigne LOUVO. Plafonne a 1 : aucun
+	// changement au-dela de 900 px de large.
+	const hudScale = $derived(
+		Math.min(1, context.stateLayoutDerived.canvasSizes().width / 900),
+	);
+
 	onMount(() => (context.stateLayout.showLoadingScreen = true));
 
 	let bonusMenuOpen = $state(false);
@@ -84,7 +92,9 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<EnableGameActor />
 	<EnablePixiExtension />
 
-	<Background />
+	{#if !context.stateLayout.showLoadingScreen}
+		<Background />
+	{/if}
 
 	{#if context.stateLayout.showLoadingScreen}
 		<LoadingScreen
@@ -151,10 +161,10 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 				/>
 		</MainContainer>
 
-		<Container x={20}>
+		<Container x={20} scale={hudScale}>
 			<UiGameName name="LOUVO" />
 		</Container>
-		<Container x={context.stateLayoutDerived.canvasSizes().width - 20}>
+		<Container x={context.stateLayoutDerived.canvasSizes().width - 20} scale={hudScale}>
 			<Sprite key="louvoLogo" anchor={{ x: 1, y: 0 }} width={100} height={72.8} />
 		</Container>
 		<MainContainer standard alignVertical="bottom">

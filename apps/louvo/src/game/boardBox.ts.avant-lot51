@@ -1,0 +1,81 @@
+import { GRID_LEFT_FRAC, GRID_RIGHT_FRAC, GRID_TOP_FRAC, GRID_BOTTOM_FRAC } from './constants';
+import { stateLayoutDerived } from './stateLayout';
+
+// ------------------------------------------------------------------
+// LA BOITE DE CADRE
+//
+// Tout le decor de Louvo (fond ET cadre) est dessine en 1672x941, ratio
+// 1.777, et les reperes GRID_*_FRAC de constants.ts sont mesures dessus.
+// Cette boite est la surface ou l'on dessine ce decor, TOUJOURS a ce ratio.
+// Le fond, le cadre, la grille et les rangees s'y referent tous.
+// ------------------------------------------------------------------
+
+const ART_RATIO = 1672 / 941;
+
+// Largeur de reference : la taille en unites de mise en page pour laquelle
+// le jeu a ete regle (bureau 1422x800). Le plateau y est a l'echelle 1.
+const REFERENCE_WIDTH = 1422;
+
+// Centre horizontal de la grille DANS l'image : 0.4955, pas 0.5. La grille
+// n'est pas exactement au milieu du decor d'origine.
+const GRID_CENTER_X_FRAC = (GRID_LEFT_FRAC + GRID_RIGHT_FRAC) / 2;
+const GRID_WIDTH_FRAC = GRID_RIGHT_FRAC - GRID_LEFT_FRAC;
+
+// ==================================================================
+// REGLAGES PORTRAIT - c'est ici qu'on ajuste a l'oeil
+// ==================================================================
+// Part de la largeur d'ecran occupee par la grille.
+// Monter = grille plus grosse et decor plus recadre sur les cotes.
+const PORTRAIT_GRID_WIDTH_FRAC = 0.86;
+
+// Hauteur a laquelle commence le decor, en fraction de la hauteur d'ecran.
+// 0 = le decor touche le haut, aucune bande vide au-dessus.
+const PORTRAIT_BOX_TOP_FRAC = 0;
+
+// Decalage horizontal fin, en fraction de la largeur d'ecran.
+// Positif = vers la droite. 0.01 vaut environ 3 px sur un ecran de 320.
+const PORTRAIT_GRID_X_OFFSET_FRAC = 0;
+// ==================================================================
+
+export type BoardBox = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	scale: number;
+};
+
+export const boardBox = (): BoardBox => {
+	const main = stateLayoutDerived.mainLayout();
+	const layoutType = stateLayoutDerived.layoutType();
+
+	// Paysage : la boite EST la mise en page.
+	// L'echelle vaut main.width / 1422, soit exactement 1 sur bureau (1422)
+	// et 1.125 en paysage (1600) - ce qui corrige la grille 10% trop petite
+	// des fenetres Popout, ou le plateau gardait sa taille fixe de 580 dans
+	// une zone de grille de 646.
+	if (layoutType === 'desktop' || layoutType === 'landscape') {
+		return {
+			x: 0,
+			y: 0,
+			width: main.width,
+			height: main.height,
+			scale: main.width / REFERENCE_WIDTH,
+		};
+	}
+
+	// Portrait / tablette : le decor est dessine PLUS LARGE que l'ecran et
+	// deborde sur les cotes, pour que la grille remplisse la largeur.
+	const width = (PORTRAIT_GRID_WIDTH_FRAC * main.width) / GRID_WIDTH_FRAC;
+	const height = width / ART_RATIO;
+
+	return {
+		// On centre la GRILLE sur l'ecran, pas la boite : sans ca la grille
+		// tombe 0.45% trop a gauche, ce qui se voit.
+		x: main.width * (0.5 + PORTRAIT_GRID_X_OFFSET_FRAC) - width * GRID_CENTER_X_FRAC,
+		y: PORTRAIT_BOX_TOP_FRAC * main.height,
+		width,
+		height,
+		scale: width / REFERENCE_WIDTH,
+	};
+};

@@ -1,0 +1,69 @@
+<script lang="ts">
+	import { Rectangle, Sprite } from 'pixi-svelte';
+	import { FadeContainer } from 'components-pixi';
+	import { MainContainer } from 'components-layout';
+	import { SECOND } from 'constants-shared/time';
+	import { getContext } from '../game/context';
+	import { boardBox } from '../game/boardBox';
+
+	const context = getContext();
+
+	const showBaseBackground = $derived(
+		context.stateGame.gameType === 'basegame' || context.stateGame.tier === 'speed_dating',
+	);
+	const showFeatureBackground = $derived(context.stateGame.tier === 'after_dark');
+
+	// ------------------------------------------------------------------
+	// Le fond suit EXACTEMENT la meme boite que le cadre.
+	// Il ne peut pas en etre detache : l'image de fond contient elle-meme
+	// l'enseigne LOUVO et le contour de la grille. Si on la posait ailleurs
+	// que le cadre, on verrait l'enseigne en double.
+	//
+	// L'ecran etant plus haut que l'image en portrait, on prolonge le sol
+	// d'un aplat uni jusqu'en bas.
+	// ------------------------------------------------------------------
+
+	// Couleur du sol, prolongee sous le decor. A ajuster si la jointure se voit.
+	const FLOOR_COLOR = 0xc0509a;
+	const FLOOR_COLOR_AFTER_DARK = 0x3d1030;
+
+	const box = $derived(boardBox());
+	const main = $derived(context.stateLayoutDerived.mainLayout());
+	const floorColor = $derived(showFeatureBackground ? FLOOR_COLOR_AFTER_DARK : FLOOR_COLOR);
+
+	const sprite = $derived({
+		x: box.x + box.width * 0.5,
+		y: box.y + box.height * 0.5,
+		width: box.width,
+		height: box.height,
+	});
+</script>
+
+<!-- Aplat de secours sur tout le canvas : evite toute bande noire quand la
+     mise en page ne remplit pas l'ecran (ecrans tres allonges). -->
+<Rectangle
+	{...context.stateLayoutDerived.canvasSizes()}
+	backgroundColor={floorColor}
+	zIndex={-4}
+/>
+
+<MainContainer>
+	<!-- Prolongement du sol sous le decor, largement deborde : le canvas
+	     recadre ce qui depasse. -->
+	<Rectangle
+		x={-main.width}
+		y={box.y + box.height}
+		width={main.width * 3}
+		height={main.height * 2}
+		backgroundColor={floorColor}
+		zIndex={-3}
+	/>
+
+	<FadeContainer show={showBaseBackground} duration={SECOND} zIndex={-2}>
+		<Sprite key="boardBackground" {...sprite} anchor={0.5} />
+	</FadeContainer>
+
+	<FadeContainer show={showFeatureBackground} duration={SECOND} zIndex={-1}>
+		<Sprite key="boardBackgroundAfterDark" {...sprite} anchor={0.5} />
+	</FadeContainer>
+</MainContainer>
