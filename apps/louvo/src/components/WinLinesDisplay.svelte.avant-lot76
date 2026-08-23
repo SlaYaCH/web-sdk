@@ -11,7 +11,6 @@
 	import { getContext } from '../game/context';
 	import WinLineReveal from './WinLineReveal.svelte';
 	import BoardContainer from './BoardContainer.svelte';
-	import { winLineSpeed } from '../game/winLineSpeed.svelte';
 
 	const context = getContext();
 
@@ -23,12 +22,9 @@
 
 	context.eventEmitter.subscribeOnMount({
 		winLinesShow: async ({ wins }) => {
-			// Meme facteur que l'animation d'une ligne : sinon les lignes
-			// s'enchainent plus vite que leur propre presentation.
-			const ecart = STAGGER_MS / winLineSpeed();
 			for (const w of wins) {
 				activeWins = [...activeWins, { id: nextId++, positions: w.positions, amount: w.win }];
-				await new Promise((r) => setTimeout(r, ecart));
+				await new Promise((r) => setTimeout(r, STAGGER_MS));
 			}
 		},
 	});

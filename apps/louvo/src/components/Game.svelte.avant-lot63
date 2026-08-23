@@ -11,7 +11,6 @@
 	import { stateUi } from 'state-shared';
 	import { BLACK } from 'constants-shared/colors';
 	import LouvoBottomBar from './LouvoBottomBar.svelte';
-	import BoardBackdrop from './BoardBackdrop.svelte';
 	import AfterDarkStreakDisplay from './AfterDarkStreakDisplay.svelte';
 	import WinLinesDisplay from './WinLinesDisplay.svelte';
 	import LouvoSettingsMenu from './LouvoSettingsMenu.svelte';
@@ -116,7 +115,6 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		<Sound />
 
 		<MainContainer>
-			<BoardBackdrop />
 			<Board />
 			<Anticipations />
 		</MainContainer>
@@ -251,11 +249,10 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		</MainContainer>
 		<DevRevealPanel />
 		<FreeSpinIntro />
-		<!-- Les compteurs etaient limites a desktop/landscape, donc absents
-		     en portrait. Ils se posent maintenant sous la grille dans tous
-		     les modes : voir counterAnchor dans game/boardBox.ts. -->
-		<FreeSpinCounter />
-		<BonusWinCounter />
+		{#if ['desktop', 'landscape'].includes(context.stateLayoutDerived.layoutType())}
+			<FreeSpinCounter />
+			<BonusWinCounter />
+		{/if}
 		<FreeSpinOutro />
 		<Transition />
 

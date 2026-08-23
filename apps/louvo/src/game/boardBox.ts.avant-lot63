@@ -1,4 +1,4 @@
-import { GRID_FRACS, SYMBOL_WIDTH, SYMBOL_HEIGHT, SYMBOL_SIZE } from './constants';
+import { GRID_FRACS, SYMBOL_WIDTH, SYMBOL_HEIGHT } from './constants';
 import { stateLayoutDerived } from './stateLayout';
 
 // ------------------------------------------------------------------
@@ -96,43 +96,3 @@ export const boardBox = (tier: BoardTier): BoardBox => {
 
 // Echelle de reference, conservee pour d'eventuels usages externes.
 export const boardReferenceScale = (width: number) => width / REFERENCE_WIDTH;
-
-// ------------------------------------------------------------------
-// ANCRAGE DES COMPTEURS (free spins, gain total)
-//
-// Les deux compteurs se posent sous la grille. Ils lisaient
-// boardLayout().height, qui est une mesure LOCALE au plateau (elle est
-// multipliee par le scale au rendu), et l'ajoutaient a une coordonnee
-// de mise en page : deux unites differentes. Sur bureau les deux
-// valeurs coincidaient presque par hasard, en Popout l'ecart faisait
-// une vingtaine de points - d'ou les compteurs trop hauts.
-//
-// Ici on lit directement le bas de la grille dans la boite de cadre,
-// exactement comme AfterDarkStreakDisplay.
-// ------------------------------------------------------------------
-
-// ==================================================================
-// REGLAGES DES COMPTEURS - a ajuster a l'oeil
-// ==================================================================
-// Espace entre le bas de la grille et le haut des compteurs.
-const MARGE_COMPTEUR_PAYSAGE = SYMBOL_SIZE * 0.2;
-
-// En portrait, l'espace juste sous la grille est occupe par les
-// presentoirs After Dark : on descend les compteurs en dessous.
-// Unite : le point de mise en page, comme dans AfterDarkStreakDisplay.
-const MARGE_COMPTEUR_PORTRAIT = 60;
-// ==================================================================
-
-export const counterAnchor = (tier: BoardTier) => {
-	const box = boardBox(tier);
-	const f = gridFracs(tier);
-	const portrait = ['portrait', 'tablet'].includes(stateLayoutDerived.layoutType());
-	return {
-		centerX: box.x + box.width * ((f.left + f.right) / 2),
-		y:
-			box.y +
-			box.height * f.bottom +
-			(portrait ? MARGE_COMPTEUR_PORTRAIT : MARGE_COMPTEUR_PAYSAGE),
-		portrait,
-	};
-};

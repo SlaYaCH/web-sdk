@@ -1,0 +1,384 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 76 : lignes de gain plus rapides en turbo,
+#                  et pas de suspense sur une colonne a banniere
+#
+# ================== SUJET 1 : LE TURBO ==================
+# Aujourd'hui la presentation d'une ligne dure 1520 ms (120 apparition
+# + 700 maintien + 150 disparition + 300 attente + 250 disparition du
+# montant), plus 200 ms entre deux lignes - la meme chose en turbo
+# qu'en vitesse normale.
+#
+# ATTENTION, LE PIEGE : il ne suffit PAS de raccourcir l'attente finale
+# du handler. Cette attente existe justement pour que le tour suivant ne
+# parte pas par-dessus une animation inachevee. Si on la coupe seule, on
+# retombe sur le bug d'origine. Il faut accelerer les TROIS ensemble :
+# l'animation de la ligne, l'ecart entre deux lignes, et l'attente.
+#
+# D'ou un facteur unique, dans un seul fichier, lu par les trois :
+#   game/winLineSpeed.svelte.ts
+#     turbo       -> 2.5x plus rapide  (1520 ms -> 608 ms)
+#     super turbo -> 4x   plus rapide  (1520 ms -> 380 ms)
+#     au moins BIG WIN -> 1x, jamais raccourci
+#
+# Le niveau de gain n'est pas porte par winInfo : il arrive sur le
+# setWin qui suit. On le lit donc en regardant en avant dans le book.
+# Si on ne le trouve pas, on considere que c'est un gros gain et on ne
+# raccourcit rien - l'echec va vers l'ancien comportement.
+#
+# ============ SUJET 2 : SUSPENSE ET BANNIERES ============
+# Le garde-fou existait deja mais il regardait les bannieres DEJA
+# AFFICHEES (activeBannerReelIndexes). Or le suspense se joue pendant
+# que les rouleaux tournent, avant que la banniere n'existe : il ne
+# pouvait donc rien voir.
+#
+# Le book, lui, sait deja. Les evenements de banniere de CE tour se
+# trouvent entre ce reveal et le suivant. On neutralise l'anticipation
+# sur ces colonnes-la. Rien n'est change cote math : on ne touche qu'au
+# tableau d'anticipation deja recopie localement, exactement comme le
+# fait la regle des 2 DATE visibles juste au-dessus.
+#
+# FICHIERS
+#   NOUVEAU   game/winLineSpeed.svelte.ts
+#   MODIFIE   game/bookEventHandlerMap.ts
+#   MODIFIE   components/WinLineReveal.svelte
+#   MODIFIE   components/WinLinesDisplay.svelte
+# Sauvegardes en .avant-lot76.
+#
+# Sort en erreur si ca echoue. AUCUN BUILD ICI.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 patch72.txt
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport83.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+def ecrire(p, txt):
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(txt)
+
+
+def sauver(p):
+    if not os.path.exists(p + ".avant-lot76"):
+        shutil.copyfile(p, p + ".avant-lot76")
+
+
+def unique(txt, ancien, nouveau, ou):
+    n = txt.count(ancien)
+    if n != 1:
+        raise AssertionError("%s : motif trouve %d fois (attendu 1) - RIEN ENREGISTRE" % (ou, n))
+    return txt.replace(ancien, nouveau, 1)
+
+
+# ==================================================================
+# 1. le facteur de vitesse, source unique
+# ==================================================================
+VITESSE = """import { stateBet } from 'state-shared';
+
+// ------------------------------------------------------------------
+// VITESSE DE PRESENTATION DES LIGNES DE GAIN
+//
+// Trois endroits doivent rester d'accord, sinon le tour suivant part
+// par-dessus une animation inachevee :
+//   - WinLineReveal    : l'animation d'une ligne
+//   - WinLinesDisplay  : l'ecart entre deux lignes
+//   - bookEventHandlerMap (winInfo) : l'attente avant la suite
+// Ils lisent tous les trois ce meme facteur.
+//
+// On ne raccourcit JAMAIS un gain qui atteint au moins BIG WIN : c'est
+// le moment que le joueur veut voir.
+// ------------------------------------------------------------------
+
+// ==================================================================
+// REGLAGES
+// ==================================================================
+// 1 = vitesse normale. 2.5 = deux fois et demie plus rapide.
+const FACTEUR_TURBO = 2.5;
+const FACTEUR_SUPER_TURBO = 4;
+// ==================================================================
+
+// Pose par le handler winInfo juste avant d'afficher les lignes.
+export const stateWinLineSpeed = $state({ atteintBigWin: false });
+
+export const winLineSpeed = () => {
+	if (stateWinLineSpeed.atteintBigWin) return 1;
+	if (stateBet.isSuperTurbo) return FACTEUR_SUPER_TURBO;
+	if (stateBet.isTurbo) return FACTEUR_TURBO;
+	return 1;
+};
+"""
+
+# ==================================================================
+# 2. bookEventHandlerMap
+# ==================================================================
+ANTICIPATION_ANCIEN = """		{
+			let cumulVisibles = 0;
+			bookEvent.anticipation = bookEvent.anticipation.map((value, i) => {
+				const keep = cumulVisibles >= 2 ? value : 0;
+				cumulVisibles += bookEvent.board[i].slice(1, -1).filter((s) => s.name === 'S').length;
+				return keep;
+			});
+		}"""
+
+ANTICIPATION_NOUVEAU = ANTICIPATION_ANCIEN + """
+		// Une colonne qui va porter une banniere (Match Duel ou Super Like)
+		// n'a pas a faire monter le suspense : son resultat est deja annonce.
+		// Le garde-fou d'Anticipations.svelte ne voit que les bannieres DEJA
+		// affichees, or le suspense se joue pendant que les rouleaux tournent,
+		// avant que la banniere n'existe. Le book, lui, sait deja : les
+		// evenements de banniere de CE tour sont entre ce reveal et le suivant.
+		{
+			const index = (bookEvents as unknown[]).indexOf(bookEvent as unknown);
+			const suite = index >= 0 ? bookEvents.slice(index + 1) : [];
+			const finDuTour = suite.findIndex((e) => e.type === 'reveal');
+			const duTour = finDuTour >= 0 ? suite.slice(0, finDuTour) : suite;
+			const colonnesBanniere = new Set(
+				duTour
+					.filter((e) => e.type === 'matchDuelReveal' || e.type === 'superlikeReveal')
+					.map((e) => (e as unknown as { reelIndex: number }).reelIndex),
+			);
+			if (colonnesBanniere.size > 0) {
+				bookEvent.anticipation = bookEvent.anticipation.map((value, i) =>
+					colonnesBanniere.has(i) ? 0 : value,
+				);
+			}
+		}"""
+
+WININFO_ANCIEN = "\twinInfo: async (bookEvent: BookEventOfType<'winInfo'>) => {"
+WININFO_NOUVEAU = ("\twinInfo: async (\n"
+                   "\t\tbookEvent: BookEventOfType<'winInfo'>,\n"
+                   "\t\t{ bookEvents }: BookEventContext,\n"
+                   "\t) => {")
+
+ORDERED_ANCIEN = "\t\tconst orderedWins = [...bookEvent.wins].sort((a, b) => a.win - b.win);"
+ORDERED_NOUVEAU = ORDERED_ANCIEN + """
+		// Le niveau de gain n'est pas porte par winInfo : il arrive sur le
+		// setWin qui suit. On le lit en avant dans le book pour savoir si on
+		// a droit de raccourcir la presentation en turbo. Introuvable = on
+		// considere que c'est un gros gain et on ne raccourcit rien.
+		{
+			const index = (bookEvents as unknown[]).indexOf(bookEvent as unknown);
+			const suivant =
+				index >= 0
+					? bookEvents.slice(index + 1).find((e) => e.type === 'setWin')
+					: undefined;
+			const niveau =
+				suivant !== undefined
+					? winLevelMap[(suivant as unknown as { winLevel: number }).winLevel as WinLevel]
+					: undefined;
+			stateWinLineSpeed.atteintBigWin = index < 0 || niveau?.type === 'big';
+		}"""
+
+ATTENTE_ANCIEN = "\t\t\tawait new Promise((r) => setTimeout(r, WIN_LINE_DURATION + staggerLeft));"
+ATTENTE_NOUVEAU = """			// Meme facteur que l'animation et que l'ecart entre lignes : les
+			// trois restent d'accord, le tour suivant ne peut pas partir
+			// par-dessus une ligne encore affichee.
+			const vitesse = winLineSpeed();
+			await new Promise((r) => setTimeout(r, (WIN_LINE_DURATION + staggerLeft) / vitesse));"""
+
+IMPORT_ANCIEN = "import { winLevelMap, type WinLevel, type WinLevelData } from './winLevelMap';"
+IMPORT_NOUVEAU = (IMPORT_ANCIEN +
+                  "\nimport { winLineSpeed, stateWinLineSpeed } from './winLineSpeed.svelte';")
+
+# ==================================================================
+# 3. WinLineReveal
+# ==================================================================
+REVEAL_DUREES_ANCIEN = """	const HOLD_MS = 700;
+	const LINE_FADE_MS = 150;
+	const AMOUNT_EXTRA_HOLD_MS = 300;
+	const AMOUNT_FADE_MS = 250;"""
+
+REVEAL_DUREES_NOUVEAU = """	// Vitesse de presentation : acceleree en turbo tant que le gain
+	// n'atteint pas BIG WIN. Facteur commun, voir game/winLineSpeed.svelte.ts.
+	// Lu une seule fois, a la creation de la ligne.
+	const VITESSE = winLineSpeed();
+	const APPARITION_MS = 120 / VITESSE;
+	const HOLD_MS = 700 / VITESSE;
+	const LINE_FADE_MS = 150 / VITESSE;
+	const AMOUNT_EXTRA_HOLD_MS = 300 / VITESSE;
+	const AMOUNT_FADE_MS = 250 / VITESSE;"""
+
+REVEAL_IMPORT_ANCIEN = "\timport { SYMBOL_HEIGHT, REEL_PADDING } from '../game/constants';"
+REVEAL_IMPORT_NOUVEAU = (REVEAL_IMPORT_ANCIEN +
+                         "\n\timport { winLineSpeed } from '../game/winLineSpeed.svelte';")
+
+REVEAL_ANIM_ANCIEN = "\t\t\tawait animate(120, (t) => {"
+REVEAL_ANIM_NOUVEAU = "\t\t\tawait animate(APPARITION_MS, (t) => {"
+
+# ==================================================================
+# 4. WinLinesDisplay
+# ==================================================================
+DISPLAY_ANCIEN = """	context.eventEmitter.subscribeOnMount({
+		winLinesShow: async ({ wins }) => {
+			for (const w of wins) {
+				activeWins = [...activeWins, { id: nextId++, positions: w.positions, amount: w.win }];
+				await new Promise((r) => setTimeout(r, STAGGER_MS));
+			}
+		},
+	});"""
+
+DISPLAY_NOUVEAU = """	context.eventEmitter.subscribeOnMount({
+		winLinesShow: async ({ wins }) => {
+			// Meme facteur que l'animation d'une ligne : sinon les lignes
+			// s'enchainent plus vite que leur propre presentation.
+			const ecart = STAGGER_MS / winLineSpeed();
+			for (const w of wins) {
+				activeWins = [...activeWins, { id: nextId++, positions: w.positions, amount: w.win }];
+				await new Promise((r) => setTimeout(r, ecart));
+			}
+		},
+	});"""
+
+DISPLAY_IMPORT_ANCIEN = "\timport BoardContainer from './BoardContainer.svelte';"
+DISPLAY_IMPORT_NOUVEAU = (DISPLAY_IMPORT_ANCIEN +
+                          "\n\timport { winLineSpeed } from '../game/winLineSpeed.svelte';")
+
+
+def main():
+    tout_ok = True
+
+    # ---------- 1. nouveau module ----------
+    p = "apps/louvo/src/game/winLineSpeed.svelte.ts"
+    say("===== 1. %s =====" % p)
+    say("  %s" % ("existe deja, reecrit" if os.path.exists(p) else "cree"))
+    ecrire(p, VITESSE)
+
+    # ---------- 2. bookEventHandlerMap ----------
+    p = "apps/louvo/src/game/bookEventHandlerMap.ts"
+    say("")
+    say("===== 2. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "winLineSpeed" in txt:
+        say("  deja applique")
+    else:
+        txt = unique(txt, IMPORT_ANCIEN, IMPORT_NOUVEAU, "import winLevelMap")
+        say("  import du facteur de vitesse ajoute")
+        txt = unique(txt, ANTICIPATION_ANCIEN, ANTICIPATION_NOUVEAU, "bloc anticipation")
+        say("  suspense neutralise sur les colonnes a banniere")
+        txt = unique(txt, WININFO_ANCIEN, WININFO_NOUVEAU, "signature winInfo")
+        say("  winInfo recoit le book complet")
+        txt = unique(txt, ORDERED_ANCIEN, ORDERED_NOUVEAU, "orderedWins")
+        say("  niveau de gain lu en avant sur le setWin suivant")
+        txt = unique(txt, ATTENTE_ANCIEN, ATTENTE_NOUVEAU, "attente finale")
+        say("  attente finale divisee par le facteur")
+        ecrire(p, txt)
+
+    # ---------- 3. WinLineReveal ----------
+    p = "apps/louvo/src/components/WinLineReveal.svelte"
+    say("")
+    say("===== 3. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "winLineSpeed" in txt:
+        say("  deja applique")
+    else:
+        txt = unique(txt, REVEAL_IMPORT_ANCIEN, REVEAL_IMPORT_NOUVEAU, "import constants")
+        txt = unique(txt, REVEAL_DUREES_ANCIEN, REVEAL_DUREES_NOUVEAU, "durees")
+        txt = unique(txt, REVEAL_ANIM_ANCIEN, REVEAL_ANIM_NOUVEAU, "animate(120)")
+        ecrire(p, txt)
+        say("  les cinq durees passent par le facteur")
+
+    # ---------- 4. WinLinesDisplay ----------
+    p = "apps/louvo/src/components/WinLinesDisplay.svelte"
+    say("")
+    say("===== 4. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "winLineSpeed" in txt:
+        say("  deja applique")
+    else:
+        txt = unique(txt, DISPLAY_IMPORT_ANCIEN, DISPLAY_IMPORT_NOUVEAU, "import BoardContainer")
+        txt = unique(txt, DISPLAY_ANCIEN, DISPLAY_NOUVEAU, "abonnement winLinesShow")
+        ecrire(p, txt)
+        say("  ecart entre lignes divise par le meme facteur")
+
+    # ---------- 5. verification ----------
+    say("")
+    say("===== 5. VERIFICATION =====")
+    controles = [
+        ("apps/louvo/src/game/winLineSpeed.svelte.ts", "export const winLineSpeed", True),
+        ("apps/louvo/src/game/winLineSpeed.svelte.ts", "FACTEUR_TURBO = 2.5", True),
+        ("apps/louvo/src/game/bookEventHandlerMap.ts", "colonnesBanniere", True),
+        ("apps/louvo/src/game/bookEventHandlerMap.ts", "stateWinLineSpeed.atteintBigWin =", True),
+        ("apps/louvo/src/game/bookEventHandlerMap.ts", "staggerLeft) / vitesse", True),
+        ("apps/louvo/src/game/bookEventHandlerMap.ts", "{ bookEvents }: BookEventContext,", True),
+        ("apps/louvo/src/components/WinLineReveal.svelte", "const VITESSE = winLineSpeed();", True),
+        ("apps/louvo/src/components/WinLineReveal.svelte", "animate(APPARITION_MS", True),
+        ("apps/louvo/src/components/WinLineReveal.svelte", "const HOLD_MS = 700;", False),
+        ("apps/louvo/src/components/WinLinesDisplay.svelte", "STAGGER_MS / winLineSpeed()", True),
+        ("apps/louvo/src/components/WinLinesDisplay.svelte", "setTimeout(r, STAGGER_MS)", False),
+    ]
+    for chemin, motif, attendu in controles:
+        present = motif in lire(chemin)
+        if present != attendu:
+            tout_ok = False
+        say("  %-32s %-42s %-8s %s" % (
+            os.path.basename(chemin), motif[:42],
+            "present" if present else "absent",
+            "OK" if present == attendu else "*** ECHEC ***"))
+
+    # ---------- 6. chiffres ----------
+    say("")
+    say("===== 6. DUREE DE PRESENTATION D'UNE LIGNE =====")
+    base = 120 + 700 + 150 + 300 + 250
+    say("  %-34s %10s %10s" % ("", "une ligne", "ecart"))
+    for nom, v in (("vitesse normale", 1), ("turbo, sous BIG WIN", 2.5),
+                   ("super turbo, sous BIG WIN", 4), ("au moins BIG WIN", 1)):
+        say("  %-34s %8.0f ms %8.0f ms" % (nom, base / v, 200 / v))
+    say("")
+    say("  L'attente finale du handler suit le meme facteur : les trois")
+    say("  restent d'accord, donc le tour suivant ne peut pas partir")
+    say("  par-dessus une ligne encore affichee.")
+    say("")
+    say("  Reglage : FACTEUR_TURBO et FACTEUR_SUPER_TURBO dans")
+    say("  game/winLineSpeed.svelte.ts. Monter = plus rapide.")
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI - envoyez rapport83.txt")
+sys.exit(0 if ok else 1)

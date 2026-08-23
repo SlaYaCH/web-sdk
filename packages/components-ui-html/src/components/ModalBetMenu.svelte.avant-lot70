@@ -30,39 +30,13 @@
 				<BetMenuAmountGrid />
 			</BaseScrollable>
 			<BaseButtonWrap type="full-width">
-				<div class="ok-hit">
-					<Button data-test="confirm-button" onclick={confirm}>
-						<BaseIcon width="100%" height="3rem" />
-						<BaseButtonContent>
-							<span style="font-size: 1rem;">{i18nDerived.confirm()}</span>
-						</BaseButtonContent>
-					</Button>
-				</div>
+				<Button data-test="confirm-button" onclick={confirm}>
+					<BaseIcon width="100%" height="6rem" />
+					<BaseButtonContent>
+						<span style="font-size: 1rem;">{i18nDerived.confirm()}</span>
+					</BaseButtonContent>
+				</Button>
 			</BaseButtonWrap>
 		</BaseContent>
 	</Popup>
 {/if}
-
-<style lang="scss">
-	/* -------------------------------------------------------------
-	   Zone cliquable du bouton OK.
-	   Le graphisme reste a 3rem : on n'y touche pas. On ajoute
-	   seulement 1.5rem de rembourrage transparent au-dessus et
-	   au-dessous du bouton, ce qui double la surface sensible sans
-	   rien changer a l'aspect.
-	   Le !important passe devant la regle de Button.svelte, composant
-	   partage du SDK qu'on prefere ne pas modifier pour deux modales.
-	   ------------------------------------------------------------- */
-	.ok-hit {
-		width: 100%;
-		display: flex;
-		justify-content: center;
-	}
-
-	.ok-hit > :global(*) {
-		width: 100%;
-		box-sizing: content-box !important;
-		padding-top: 1.5rem !important;
-		padding-bottom: 1.5rem !important;
-	}
-</style>

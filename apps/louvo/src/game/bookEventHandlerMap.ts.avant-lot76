@@ -5,7 +5,6 @@ import { sequence } from 'utils-shared/sequence';
 import { eventEmitter } from './eventEmitter';
 import { playBookEvent } from './utils';
 import { winLevelMap, type WinLevel, type WinLevelData } from './winLevelMap';
-import { winLineSpeed, stateWinLineSpeed } from './winLineSpeed.svelte';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
@@ -94,28 +93,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 				return keep;
 			});
 		}
-		// Une colonne qui va porter une banniere (Match Duel ou Super Like)
-		// n'a pas a faire monter le suspense : son resultat est deja annonce.
-		// Le garde-fou d'Anticipations.svelte ne voit que les bannieres DEJA
-		// affichees, or le suspense se joue pendant que les rouleaux tournent,
-		// avant que la banniere n'existe. Le book, lui, sait deja : les
-		// evenements de banniere de CE tour sont entre ce reveal et le suivant.
-		{
-			const index = (bookEvents as unknown[]).indexOf(bookEvent as unknown);
-			const suite = index >= 0 ? bookEvents.slice(index + 1) : [];
-			const finDuTour = suite.findIndex((e) => e.type === 'reveal');
-			const duTour = finDuTour >= 0 ? suite.slice(0, finDuTour) : suite;
-			const colonnesBanniere = new Set(
-				duTour
-					.filter((e) => e.type === 'matchDuelReveal' || e.type === 'superlikeReveal')
-					.map((e) => (e as unknown as { reelIndex: number }).reelIndex),
-			);
-			if (colonnesBanniere.size > 0) {
-				bookEvent.anticipation = bookEvent.anticipation.map((value, i) =>
-					colonnesBanniere.has(i) ? 0 : value,
-				);
-			}
-		}
 		const isBonusGame = checkIsMultipleRevealEvents({ bookEvents });
 		if (isBonusGame) {
 			eventEmitter.broadcast({ type: 'stopButtonEnable' });
@@ -200,10 +177,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		stateGame.streakTargetTier = bookEvent.streakTier;
 		stateGame.streakTargetHearts = bookEvent.streakHearts;
 	},
-	winInfo: async (
-		bookEvent: BookEventOfType<'winInfo'>,
-		{ bookEvents }: BookEventContext,
-	) => {
+	winInfo: async (bookEvent: BookEventOfType<'winInfo'>) => {
 		// Attend la fin des lancers de coeurs Super Like avant d'afficher les lignes de gains.
 		if (stateGame.superlikeAnimationPromise) {
 			await Promise.race([
@@ -218,22 +192,6 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		// et les montants / le total sont evidemment inchanges. Le meme ordre
 		// sert aussi a la surbrillance des symboles, pour rester synchronise.
 		const orderedWins = [...bookEvent.wins].sort((a, b) => a.win - b.win);
-		// Le niveau de gain n'est pas porte par winInfo : il arrive sur le
-		// setWin qui suit. On le lit en avant dans le book pour savoir si on
-		// a droit de raccourcir la presentation en turbo. Introuvable = on
-		// considere que c'est un gros gain et on ne raccourcit rien.
-		{
-			const index = (bookEvents as unknown[]).indexOf(bookEvent as unknown);
-			const suivant =
-				index >= 0
-					? bookEvents.slice(index + 1).find((e) => e.type === 'setWin')
-					: undefined;
-			const niveau =
-				suivant !== undefined
-					? winLevelMap[(suivant as unknown as { winLevel: number }).winLevel as WinLevel]
-					: undefined;
-			stateWinLineSpeed.atteintBigWin = index < 0 || niveau?.type === 'big';
-		}
 		// Instant de depart de la presentation des lignes : sert plus bas a ne
 		// completer que le temps qui manque VRAIMENT a la fin.
 		const winLinesStartedAt = performance.now();
@@ -268,11 +226,7 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 				0,
 				WIN_LINE_STAGGER * (bookEvent.wins.length - 1) - winLinesElapsed,
 			);
-			// Meme facteur que l'animation et que l'ecart entre lignes : les
-			// trois restent d'accord, le tour suivant ne peut pas partir
-			// par-dessus une ligne encore affichee.
-			const vitesse = winLineSpeed();
-			await new Promise((r) => setTimeout(r, (WIN_LINE_DURATION + staggerLeft) / vitesse));
+			await new Promise((r) => setTimeout(r, WIN_LINE_DURATION + staggerLeft));
 		}
 	},
 	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {

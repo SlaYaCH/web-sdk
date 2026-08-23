@@ -11,7 +11,6 @@
 
 	import { getContext } from '../game/context';
 	import { SYMBOL_SIZE } from '../game/constants';
-	import { counterAnchor } from '../game/boardBox';
 	import { anchorToPivot, BitmapText, Container, Rectangle, Sprite, type Sizes } from 'pixi-svelte';
 
 	const context = getContext();
@@ -24,12 +23,12 @@
 		height: SYMBOL_SIZE * 0.61,
 	});
 	const scale = 1;
-	// Ancre commune aux deux compteurs : le bas REEL de la grille, lu dans
-	// la boite de cadre. Voir counterAnchor dans boardBox.ts.
-	const ancre = $derived(counterAnchor(context.stateGame.tier));
 	const position = $derived({
-		x: ancre.centerX - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
-		y: ancre.y,
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
+		y:
+			context.stateGameDerived.boardLayout().y +
+			context.stateGameDerived.boardLayout().height * 0.5 +
+			SYMBOL_SIZE * 0.2,
 	});
 
 	const fontSize = SYMBOL_SIZE * 0.21;

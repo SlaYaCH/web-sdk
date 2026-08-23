@@ -1,0 +1,331 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 63 : les deux compteurs (free spins / gain total)
+#
+# DEUX SYMPTOMES, UNE SEULE CAUSE, plus un interrupteur.
+#
+# 1) INVISIBLES EN PORTRAIT - Game.svelte ligne 252 :
+#      {#if ['desktop','landscape'].includes(layoutType())}
+#    Ils n'etaient tout simplement pas dessines. On enleve la condition.
+#
+# 2) TROP HAUTS EN POPOUT - melange d'unites :
+#      y = boardLayout().y + boardLayout().height * 0.5 + SYMBOL_SIZE*0.2
+#    boardLayout().height est une mesure LOCALE au plateau (elle est
+#    multipliee par le scale au rendu). On l'ajoutait a une coordonnee
+#    de MISE EN PAGE. Sur bureau les deux valeurs coincident presque par
+#    hasard ; en Popout l'ecart fait une vingtaine de points et le
+#    panneau remonte. Meme famille d'erreur que getSymbolX/getSymbolY.
+#
+#    Le bas reel de la grille se lit sans ambiguite dans la boite de
+#    cadre : box.y + box.height * f.bottom. C'est deja ce que fait
+#    AfterDarkStreakDisplay, on copie la methode au lieu d'en inventer
+#    une deuxieme.
+#
+# 4 fichiers touches, sauvegardes en .avant-lot63 :
+#   game/boardBox.ts            + counterAnchor()
+#   components/FreeSpinCounter.svelte
+#   components/BonusWinCounter.svelte
+#   components/Game.svelte      condition retiree
+#
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 patch61.txt
+#   3) envoyer rapport70.txt
+# ============================================================
+import os
+import re
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport70.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    with open(p, encoding="utf-8") as f:
+        return f.read()
+
+
+def ecrire(p, txt):
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(txt)
+
+
+def sauver(p, suffixe=".avant-lot63"):
+    if not os.path.exists(p + suffixe):
+        shutil.copyfile(p, p + suffixe)
+
+
+def remplace_unique(txt, ancien, nouveau, ou):
+    n = txt.count(ancien)
+    if n != 1:
+        raise AssertionError("%s : motif trouve %d fois (attendu 1) - RIEN ENREGISTRE" % (ou, n))
+    return txt.replace(ancien, nouveau, 1)
+
+
+# ==================================================================
+# 1. boardBox.ts : l'ancre commune aux deux compteurs
+# ==================================================================
+BB_IMPORT_ANCIEN = "import { GRID_FRACS, SYMBOL_WIDTH, SYMBOL_HEIGHT } from './constants';"
+BB_IMPORT_NOUVEAU = "import { GRID_FRACS, SYMBOL_WIDTH, SYMBOL_HEIGHT, SYMBOL_SIZE } from './constants';"
+
+BB_AJOUT = """
+// ------------------------------------------------------------------
+// ANCRAGE DES COMPTEURS (free spins, gain total)
+//
+// Les deux compteurs se posent sous la grille. Ils lisaient
+// boardLayout().height, qui est une mesure LOCALE au plateau (elle est
+// multipliee par le scale au rendu), et l'ajoutaient a une coordonnee
+// de mise en page : deux unites differentes. Sur bureau les deux
+// valeurs coincidaient presque par hasard, en Popout l'ecart faisait
+// une vingtaine de points - d'ou les compteurs trop hauts.
+//
+// Ici on lit directement le bas de la grille dans la boite de cadre,
+// exactement comme AfterDarkStreakDisplay.
+// ------------------------------------------------------------------
+
+// ==================================================================
+// REGLAGES DES COMPTEURS - a ajuster a l'oeil
+// ==================================================================
+// Espace entre le bas de la grille et le haut des compteurs.
+const MARGE_COMPTEUR_PAYSAGE = SYMBOL_SIZE * 0.2;
+
+// En portrait, l'espace juste sous la grille est occupe par les
+// presentoirs After Dark : on descend les compteurs en dessous.
+// Unite : le point de mise en page, comme dans AfterDarkStreakDisplay.
+const MARGE_COMPTEUR_PORTRAIT = 380;
+// ==================================================================
+
+export const counterAnchor = (tier: BoardTier) => {
+	const box = boardBox(tier);
+	const f = gridFracs(tier);
+	const portrait = ['portrait', 'tablet'].includes(stateLayoutDerived.layoutType());
+	return {
+		centerX: box.x + box.width * ((f.left + f.right) / 2),
+		y:
+			box.y +
+			box.height * f.bottom +
+			(portrait ? MARGE_COMPTEUR_PORTRAIT : MARGE_COMPTEUR_PAYSAGE),
+		portrait,
+	};
+};
+"""
+
+# ==================================================================
+# 2 & 3. les deux compteurs
+# ==================================================================
+FSC_ANCIEN = """	const position = $derived({
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
+		y:
+			context.stateGameDerived.boardLayout().y +
+			context.stateGameDerived.boardLayout().height * 0.5 +
+			SYMBOL_SIZE * 0.2,
+	});"""
+
+FSC_NOUVEAU = """	// Ancre commune aux deux compteurs : le bas REEL de la grille, lu dans
+	// la boite de cadre. Voir counterAnchor dans boardBox.ts.
+	const ancre = $derived(counterAnchor(context.stateGame.tier));
+	const position = $derived({
+		x: ancre.centerX - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
+		y: ancre.y,
+	});"""
+
+BWC_ANCIEN = """	const position = $derived({
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 + SYMBOL_SIZE * 1.0,
+		y:
+			context.stateGameDerived.boardLayout().y +
+			context.stateGameDerived.boardLayout().height * 0.5 +
+			SYMBOL_SIZE * 0.2,
+	});"""
+
+BWC_NOUVEAU = """	const ancre = $derived(counterAnchor(context.stateGame.tier));
+	const position = $derived({
+		x: ancre.centerX - panelSizes.width * 0.5 + SYMBOL_SIZE * 1.0,
+		y: ancre.y,
+	});"""
+
+IMPORT_ANCRE_ANCIEN = "\timport { SYMBOL_SIZE } from '../game/constants';"
+IMPORT_ANCRE_NOUVEAU = ("\timport { SYMBOL_SIZE } from '../game/constants';\n"
+                        "\timport { counterAnchor } from '../game/boardBox';")
+
+# ==================================================================
+# 4. Game.svelte : on rallume les compteurs partout
+# ==================================================================
+GAME_ANCIEN = """		{#if ['desktop', 'landscape'].includes(context.stateLayoutDerived.layoutType())}
+			<FreeSpinCounter />
+			<BonusWinCounter />
+		{/if}"""
+
+GAME_NOUVEAU = """		<!-- Les compteurs etaient limites a desktop/landscape, donc absents
+		     en portrait. Ils se posent maintenant sous la grille dans tous
+		     les modes : voir counterAnchor dans game/boardBox.ts. -->
+		<FreeSpinCounter />
+		<BonusWinCounter />"""
+
+
+def main():
+    tout_ok = True
+
+    # ---------- 1. boardBox.ts ----------
+    p = "apps/louvo/src/game/boardBox.ts"
+    say("===== 1. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "counterAnchor" in txt:
+        say("  deja applique")
+    else:
+        txt = remplace_unique(txt, BB_IMPORT_ANCIEN, BB_IMPORT_NOUVEAU, "boardBox import")
+        say("  SYMBOL_SIZE ajoute a l'import")
+        txt = txt.rstrip("\n") + "\n" + BB_AJOUT
+        say("  counterAnchor() ajoute en fin de fichier")
+        ecrire(p, txt)
+
+    # ---------- 2. FreeSpinCounter ----------
+    p = "apps/louvo/src/components/FreeSpinCounter.svelte"
+    say("")
+    say("===== 2. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "counterAnchor(" in txt:
+        say("  deja applique")
+    else:
+        txt = remplace_unique(txt, FSC_ANCIEN, FSC_NOUVEAU, "FreeSpinCounter position")
+        txt = remplace_unique(txt, IMPORT_ANCRE_ANCIEN, IMPORT_ANCRE_NOUVEAU, "FreeSpinCounter import")
+        ecrire(p, txt)
+        say("  position rattachee au bas de grille, import ajoute")
+
+    # ---------- 3. BonusWinCounter ----------
+    p = "apps/louvo/src/components/BonusWinCounter.svelte"
+    say("")
+    say("===== 3. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "counterAnchor(" in txt:
+        say("  deja applique")
+    else:
+        txt = remplace_unique(txt, BWC_ANCIEN, BWC_NOUVEAU, "BonusWinCounter position")
+        txt = remplace_unique(txt, IMPORT_ANCRE_ANCIEN, IMPORT_ANCRE_NOUVEAU, "BonusWinCounter import")
+        ecrire(p, txt)
+        say("  position rattachee au bas de grille, import ajoute")
+
+    # ---------- 4. Game.svelte ----------
+    p = "apps/louvo/src/components/Game.svelte"
+    say("")
+    say("===== 4. %s =====" % p)
+    sauver(p)
+    txt = lire(p)
+    if "les modes : voir counterAnchor" in txt:
+        say("  deja applique")
+    else:
+        txt = remplace_unique(txt, GAME_ANCIEN, GAME_NOUVEAU, "Game.svelte condition")
+        ecrire(p, txt)
+        say("  condition desktop/landscape retiree")
+
+    # ---------- 5. Verification ----------
+    say("")
+    say("===== 5. VERIFICATION =====")
+    controles = [
+        ("apps/louvo/src/game/boardBox.ts", "export const counterAnchor", True),
+        ("apps/louvo/src/game/boardBox.ts", "SYMBOL_SIZE } from './constants'", True),
+        ("apps/louvo/src/components/FreeSpinCounter.svelte", "counterAnchor(context.stateGame.tier)", True),
+        ("apps/louvo/src/components/FreeSpinCounter.svelte", "boardLayout().height", False),
+        ("apps/louvo/src/components/BonusWinCounter.svelte", "counterAnchor(context.stateGame.tier)", True),
+        ("apps/louvo/src/components/BonusWinCounter.svelte", "boardLayout().height", False),
+        ("apps/louvo/src/components/Game.svelte", "<FreeSpinCounter />", True),
+        ("apps/louvo/src/components/Game.svelte", "'landscape'].includes(context.stateLayoutDerived.layoutType())}", False),
+    ]
+    for chemin, motif, attendu in controles:
+        present = motif in lire(chemin)
+        if present != attendu:
+            tout_ok = False
+        say("  %-34s %-52s %-8s %s" % (
+            os.path.basename(chemin), motif[:52],
+            "present" if present else "absent",
+            "OK" if present == attendu else "*** ECHEC ***"))
+
+    # ---------- 6. Ce que ca change, en chiffres ----------
+    say("")
+    say("===== 6. POSITION VERTICALE DES COMPTEURS =====")
+    cst = ""
+    try:
+        cst = lire("apps/louvo/src/game/constants.ts")
+    except OSError:
+        pass
+    m_size = re.search(r"SYMBOL_SIZE\s*=\s*([0-9.]+)", cst)
+    m_h = re.search(r"BOARD_SIZES[^{]*\{[^}]*height:\s*([0-9.*\s A-Z_]+?)[,\n}]", cst)
+    if not m_size:
+        say("  SYMBOL_SIZE introuvable dans constants.ts - table non calculee")
+    else:
+        SS = float(m_size.group(1))
+        say("  SYMBOL_SIZE lu dans constants.ts : %g" % SS)
+        try:
+            BH = float(eval(m_h.group(1).replace("SYMBOL_HEIGHT", "91"), {"__builtins__": {}}))
+        except Exception:
+            BH = None
+        f_top, f_bot = 130 / 941.0, 657 / 941.0
+        say("")
+        say("  %-12s %10s %14s %14s %10s" % ("mode", "hauteur", "ancien y", "nouveau y", "ecart"))
+        for nom, mw, mh in (("desktop", 1422, 800), ("popout", 1600, 900), ("portrait", 800, 1422)):
+            if nom == "portrait":
+                largeur = (0.86 * mw) / (1166 / 1672.0 - 491 / 1672.0)
+                bx_h = largeur / (1672 / 941.0)
+                bx_y = 0.02 * mh
+                marge = 380
+            else:
+                bx_h, bx_y, marge = mh, 0, SS * 0.2
+            nouveau = bx_y + bx_h * f_bot + marge
+            if BH is None:
+                ancien = float("nan")
+            else:
+                ancien = bx_y + bx_h * ((f_top + f_bot) / 2) + BH * 0.5 + SS * 0.2
+            say("  %-12s %10.0f %14.1f %14.1f %10.1f" % (nom, bx_h, ancien, nouveau, nouveau - ancien))
+        say("")
+        say("  L'ecart en Popout est ce qui faisait remonter les compteurs.")
+        say("  En portrait ils n'etaient pas dessines du tout.")
+
+    say("")
+    say("===== 7. REGLAGES A AJUSTER A L'OEIL =====")
+    say("  game/boardBox.ts :")
+    say("    MARGE_COMPTEUR_PAYSAGE  = SYMBOL_SIZE * 0.2   (desktop / Popout)")
+    say("    MARGE_COMPTEUR_PORTRAIT = 380                 (sous les presentoirs)")
+    say("  Augmenter = descendre. Diminuer = remonter.")
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK - vous pouvez lancer le build" if ok else "ECHEC - envoyez rapport70.txt"))
+print("")
+print("FINI - envoyez rapport70.txt")

@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 67 : presentoirs centres dans l'espace libre
+#
+# REMPLACE LE LOT 66 (patch64), qui n'a pas besoin d'etre lance.
+# Si patch64 a deja tourne, ce patch marche quand meme.
+#
+# Au lieu d'une marge fixe sous le cadre, les deux rangees sont
+# maintenant CENTREES verticalement dans l'espace libre, entre :
+#   - le bas des compteurs FREE SPIN / TOTAL WIN
+#   - le haut de la barre du bas
+#
+# Elles se replacent donc toutes seules si l'un des deux bouge.
+#
+# Le seul chiffre a l'oeil devient PORTRAIT_BAS_FRAC : la hauteur ou
+# commence la barre du bas, en fraction de la hauteur de mise en page.
+# La taille (0.72), l'ecart entre rangees (150) et le placement
+# lateral ne changent pas.
+#
+# SAUVEGARDE : AfterDarkStreakDisplay.svelte.avant-lot67
+# Sort en erreur si ca echoue, pour bloquer le build. AUCUN BUILD ICI.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 patch65.txt
+# ============================================================
+import os
+import re
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport74.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+P = "apps/louvo/src/components/AfterDarkStreakDisplay.svelte"
+
+IMPORT_BOX_ANCIEN = "\timport { boardBox } from '../game/boardBox';"
+IMPORT_BOX_NOUVEAU = "\timport { boardBox, counterAnchor } from '../game/boardBox';"
+
+IMPORT_CST = re.compile(
+    r"\timport \{ (GRID_LEFT_FRAC[^}]*?) \} from '\.\./game/constants';")
+
+MARGE_HAUT = re.compile(r"\tconst PORTRAIT_MARGE_HAUT = -?[0-9.]+;.*\n")
+MARGE_HAUT_NOUVELLE = (
+    "\t// Hauteur ou commence la barre du bas, en fraction de la hauteur de\n"
+    "\t// mise en page. C'est la borne basse de l'espace libre.\n"
+    "\tconst PORTRAIT_BAS_FRAC = 0.92;\n")
+
+POSY = re.compile(
+    r"\tconst posY = \(i: number\) =>\s*\n"
+    r"\t\testPortrait\s*\n"
+    r"(?:.*\n)*?"
+    r"\t\t\t: groupY\(i\);\n")
+
+POSY_NOUVEAU = """	// ============================================================
+	// PORTRAIT : les deux rangees sont CENTREES verticalement dans
+	// l'espace libre, entre le bas des compteurs FREE SPIN / TOTAL WIN
+	// et le haut de la barre du bas. Elles se replacent donc seules si
+	// l'un des deux bouge, au lieu de dependre d'une marge fixe.
+	// ============================================================
+	const HAUTEUR_COMPTEUR = SYMBOL_SIZE * 0.61; // meme mesure que les panneaux
+	const ancreCompteurs = $derived(counterAnchor(context.stateGame.tier));
+	const hautZone = $derived(ancreCompteurs.y + HAUTEUR_COMPTEUR);
+	const basZone = $derived(mainH() * PORTRAIT_BAS_FRAC);
+	const centreZone = $derived((hautZone + basZone) / 2);
+
+	const posY = (i: number) =>
+		estPortrait
+			? centreZone + (i - 0.5) * PORTRAIT_ECART_RANGEES
+			: groupY(i);
+"""
+
+
+def main():
+    if not os.path.exists(P + ".avant-lot67"):
+        shutil.copyfile(P, P + ".avant-lot67")
+    txt = open(P, encoding="utf-8").read()
+
+    say("===== 1. ETAT DE DEPART =====")
+    m = re.search(r"const PORTRAIT_MARGE_HAUT = (-?[0-9.]+);", txt)
+    say("  PORTRAIT_MARGE_HAUT : %s" % (m.group(1) if m else "deja retire"))
+    say("  deja centre         : %s" % ("oui" if "centreZone" in txt else "non"))
+
+    if "centreZone" in txt:
+        say("  rien a faire")
+    else:
+        say("")
+        say("===== 2. MODIFICATIONS =====")
+
+        # import de counterAnchor
+        if txt.count(IMPORT_BOX_ANCIEN) != 1:
+            raise AssertionError("import de boardBox introuvable - RIEN ENREGISTRE")
+        txt = txt.replace(IMPORT_BOX_ANCIEN, IMPORT_BOX_NOUVEAU, 1)
+        say("  import counterAnchor ajoute")
+
+        # SYMBOL_SIZE dans l'import des constantes
+        mi = IMPORT_CST.search(txt)
+        if not mi:
+            raise AssertionError("import des constantes introuvable - RIEN ENREGISTRE")
+        if "SYMBOL_SIZE" not in mi.group(1):
+            txt = txt.replace(mi.group(0),
+                              "\timport { %s, SYMBOL_SIZE } from '../game/constants';" % mi.group(1),
+                              1)
+            say("  SYMBOL_SIZE ajoute a l'import des constantes")
+        else:
+            say("  SYMBOL_SIZE deja importe")
+
+        # la marge fixe devient la borne basse
+        if not MARGE_HAUT.search(txt):
+            raise AssertionError("ligne PORTRAIT_MARGE_HAUT introuvable - RIEN ENREGISTRE")
+        txt = MARGE_HAUT.sub(MARGE_HAUT_NOUVELLE, txt, count=1)
+        say("  PORTRAIT_MARGE_HAUT remplace par PORTRAIT_BAS_FRAC")
+
+        # posY
+        if len(POSY.findall(txt)) != 1:
+            raise AssertionError("bloc posY trouve %d fois (attendu 1) - RIEN ENREGISTRE"
+                                 % len(POSY.findall(txt)))
+        txt = POSY.sub(lambda _m: POSY_NOUVEAU, txt, count=1)
+        say("  posY recalcule par centrage")
+
+        with open(P, "w", encoding="utf-8") as f:
+            f.write(txt)
+
+    say("")
+    say("===== 3. VERIFICATION =====")
+    apres = open(P, encoding="utf-8").read()
+    tout_ok = True
+    for motif, attendu in (
+        ("counterAnchor(context.stateGame.tier)", True),
+        ("const PORTRAIT_BAS_FRAC = 0.92;", True),
+        ("centreZone + (i - 0.5) * PORTRAIT_ECART_RANGEES", True),
+        ("PORTRAIT_MARGE_HAUT", False),
+        ("SYMBOL_SIZE", True),
+        (": groupY(i);", True),
+    ):
+        present = motif in apres
+        if present != attendu:
+            tout_ok = False
+        say("  %-52s %-8s %s" % (motif[:52], "present" if present else "absent",
+                                 "OK" if present == attendu else "*** ECHEC ***"))
+
+    say("")
+    say("===== 4. EMPILEMENT EN PORTRAIT (800x1422) =====")
+    m3 = re.search(r"const PORTRAIT_ECART_RANGEES = ([0-9.]+);", apres)
+    ecart = float(m3.group(1)) if m3 else 150.0
+    bas_cadre = 0.02 * 1422 + (0.86 * 800 / (675 / 1672.0)) / (1672 / 941.0) * (657 / 941.0)
+    haut = bas_cadre + 60 + 120 * 0.61
+    basz = 1422 * 0.92
+    centre = (haut + basz) / 2
+    say("  bas du cadre                %7.1f" % bas_cadre)
+    say("  bas des compteurs           %7.1f   <-- borne haute" % haut)
+    say("  rangee 1                    %7.1f" % (centre - ecart / 2))
+    say("  centre de la zone           %7.1f" % centre)
+    say("  rangee 2                    %7.1f" % (centre + ecart / 2))
+    say("  haut de la barre du bas     %7.1f   <-- borne basse" % basz)
+    say("")
+    say("  Un seul reglage a l'oeil : PORTRAIT_BAS_FRAC (0.92).")
+    say("  Le baisser remonte l'ensemble, l'augmenter le descend.")
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI - rapport74.txt")
+sys.exit(0 if ok else 1)

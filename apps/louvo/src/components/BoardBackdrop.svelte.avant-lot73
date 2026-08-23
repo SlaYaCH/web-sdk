@@ -1,0 +1,45 @@
+<script lang="ts">
+	import { Rectangle } from 'pixi-svelte';
+
+	import { getContext } from '../game/context';
+	import { boardBox, gridFracs } from '../game/boardBox';
+
+	// ------------------------------------------------------------------
+	// FOND NOIR DERRIERE LA GRILLE
+	//
+	// Depuis que le decor est une image pleine, les parties transparentes
+	// des symboles laissent voir la scene au travers - visible surtout sur
+	// les wilds, dont les bords sont decoupes. Avant, le fond contenait la
+	// grille et faisait ecran.
+	//
+	// On dessine donc un aplat noir sur la zone de grille exacte, derriere
+	// les symboles et devant le decor. Le leger debord passe sous le
+	// cadre : le trou du cadre (495-1162 sur l'image) est un peu plus
+	// petit que la zone de grille (491-1166).
+	// ------------------------------------------------------------------
+
+	// ==================================================================
+	// REGLAGES
+	// ==================================================================
+	// Debord, en unites de mise en page. Augmenter si un liseré clair
+	// apparait sur un bord.
+	const DEBORD = 4;
+
+	// Opacite de l'aplat. 1 = noir franc.
+	const OPACITE = 1;
+	// ==================================================================
+
+	const context = getContext();
+
+	const box = $derived(boardBox(context.stateGame.tier));
+	const f = $derived(gridFracs(context.stateGame.tier));
+
+	const zone = $derived({
+		x: box.x + box.width * f.left - DEBORD,
+		y: box.y + box.height * f.top - DEBORD,
+		width: box.width * (f.right - f.left) + DEBORD * 2,
+		height: box.height * (f.bottom - f.top) + DEBORD * 2,
+	});
+</script>
+
+<Rectangle {...zone} backgroundColor={0x000000} backgroundAlpha={OPACITE} zIndex={-1} />

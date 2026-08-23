@@ -6,7 +6,6 @@
 
 	import { getContext } from '../game/context';
 	import { SYMBOL_SIZE } from '../game/constants';
-	import { counterAnchor } from '../game/boardBox';
 	import { anchorToPivot, BitmapText, Container, Rectangle, type Sizes } from 'pixi-svelte';
 
 	const context = getContext();
@@ -16,10 +15,12 @@
 		height: SYMBOL_SIZE * 0.61,
 	});
 	// Miroir exact du compteur de free spins, a droite du centre de la grille.
-	const ancre = $derived(counterAnchor(context.stateGame.tier));
 	const position = $derived({
-		x: ancre.centerX - panelSizes.width * 0.5 + SYMBOL_SIZE * 1.0,
-		y: ancre.y,
+		x: context.stateGameDerived.boardLayout().x - panelSizes.width * 0.5 + SYMBOL_SIZE * 1.0,
+		y:
+			context.stateGameDerived.boardLayout().y +
+			context.stateGameDerived.boardLayout().height * 0.5 +
+			SYMBOL_SIZE * 0.2,
 	});
 
 	const fontSize = SYMBOL_SIZE * 0.21;

@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 61 : RECONNAISSANCE DES COMPTEURS (LECTURE SEULE)
+#
+# But : trouver qui dessine « FREE SPIN 1 OF 10 » et « TOTAL WIN »,
+# et sur quoi ces compteurs se reperent. Symptomes constates par Seb :
+#   - en portrait / mobile ils ne s'affichent PAS DU TOUT
+#   - en Popout ils sont un tout petit peu trop hauts
+#
+# Hypothese a verifier (la meme que pour les panneaux du lot 52) :
+# ils sont poses en pixels de canvas bruts, hors MainContainer, donc
+# sans echelle - en portrait ils sortent de l'ecran.
+#
+# NE MODIFIE RIEN. Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   1) deposer ce fichier a la RACINE de web-sdk
+#   2) cd /workspaces/web-sdk && python3 recon39.txt
+#   3) envoyer rapport68.txt
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport68.txt"
+report = []
+
+IGNORE = {"node_modules", "dist", ".turbo", "build", ".svelte-kit", ".git",
+          "_demo_assets_backup", "_nouveaux_cadres", "static"}
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    flush()
+
+
+def marche(*a):
+    print(*a)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+def lire(p):
+    try:
+        with open(p, "r", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def parcours(bases, exts=(".ts", ".svelte")):
+    for base in bases:
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in IGNORE]
+            for fn in sorted(filenames):
+                if fn.endswith(exts) and not fn.endswith(".d.ts"):
+                    yield os.path.join(dirpath, fn)
+
+
+def dump(p, max_lignes=400):
+    txt = lire(p)
+    say("")
+    say("--------------------------------------------------------------")
+    if txt is None:
+        say(">>> INTROUVABLE : %s" % p)
+        say("--------------------------------------------------------------")
+        return
+    say(">>> %s" % p)
+    say("--------------------------------------------------------------")
+    lignes = txt.split("\n")
+    for i, l in enumerate(lignes[:max_lignes], 1):
+        say("%4d| %s" % (i, l))
+    if len(lignes) > max_lignes:
+        say("... (%d lignes de plus, tronque)" % (len(lignes) - max_lignes))
+
+
+BASES = ["apps/louvo/src", "packages/components-ui-pixi/src",
+         "packages/components-ui-html/src", "packages/components-shared/src",
+         "packages/state-shared/src"]
+
+
+def main():
+    # ---------- 1. Qui ecrit ces textes ? ----------
+    marche("1/5 recherche des libelles...")
+    say("===== 1. OU SONT ECRITS LES LIBELLES DES COMPTEURS =====")
+    say("(on cherche le texte affiche, pas une variable devinee)")
+    say("")
+    motif = re.compile(
+        r"FREE\s*SPIN|TOTAL\s*WIN|freeSpin|totalWin|spinCount|winCount|"
+        r"OF\s*\{|currentSpin|spinIndex|freeSpinCount",
+        re.IGNORECASE)
+    candidats = {}
+    for p in parcours(BASES):
+        txt = lire(p) or ""
+        for i, l in enumerate(txt.split("\n"), 1):
+            if motif.search(l):
+                say("%s:%d: %s" % (p, i, l.strip()[:160]))
+                candidats[p] = candidats.get(p, 0) + 1
+    say("")
+    say("--- fichiers concernes, par nombre de touches ---")
+    for p, n in sorted(candidats.items(), key=lambda kv: -kv[1]):
+        say("  %3d  %s" % (n, p))
+    if not candidats:
+        say("  (AUCUNE touche - les compteurs viennent d'ailleurs)")
+
+    # ---------- 2. Les fichiers candidats en entier ----------
+    marche("2/5 ouverture des fichiers candidats...")
+    say("")
+    say("===== 2. FICHIERS CANDIDATS OUVERTS EN ENTIER =====")
+    # les 6 plus charges, ce sont eux qui dessinent
+    for p, _ in sorted(candidats.items(), key=lambda kv: -kv[1])[:6]:
+        dump(p)
+
+    # ---------- 3. Comment Game.svelte pose ses surcouches ----------
+    marche("3/5 Game.svelte...")
+    say("")
+    say("===== 3. GAME.SVELTE (pose des surcouches et echelles) =====")
+    dump("apps/louvo/src/components/Game.svelte", 600)
+
+    # ---------- 4. Les aides d'echelle deja en place ----------
+    marche("4/5 aides d'echelle existantes...")
+    say("")
+    say("===== 4. AIDES D'ECHELLE DEJA EN PLACE =====")
+    say("(overlayScale / hudScale / barScale : a reutiliser, pas a reinventer)")
+    say("")
+    aides = re.compile(r"overlayScale|hudScale|barScale|canvasSizes\(\)|mainLayout\(\)|layoutType\(\)")
+    for p in parcours(["apps/louvo/src"]):
+        txt = lire(p) or ""
+        for i, l in enumerate(txt.split("\n"), 1):
+            if aides.search(l):
+                say("%s:%d: %s" % (p, i, l.strip()[:160]))
+
+    # ---------- 5. Qui est rendu hors MainContainer ----------
+    marche("5/5 structure du rendu...")
+    say("")
+    say("===== 5. STRUCTURE DU RENDU : DEDANS OU DEHORS ? =====")
+    say("(tout ce qui est hors <MainContainer> est en pixels de canvas bruts)")
+    say("")
+    balise = re.compile(r"^</?[A-Z]")
+    for p in parcours(["apps/louvo/src"], exts=(".svelte",)):
+        txt = lire(p) or ""
+        if "MainContainer" not in txt:
+            continue
+        say("")
+        say(">>> %s" % p)
+        dedans = False
+        hors = []
+        for i, l in enumerate(txt.split("\n"), 1):
+            s = l.strip()
+            if "</MainContainer>" in s:
+                dedans = False
+                say("%4d| %-70s FIN de la zone mise a l'echelle" % (i, s[:70]))
+                continue
+            if "<MainContainer" in s:
+                dedans = True
+                say("%4d| %-70s DEBUT de la zone mise a l'echelle" % (i, s[:70]))
+                continue
+            if balise.match(s):
+                etat = "dedans" if dedans else "DEHORS (pixels bruts)"
+                say("%4d| %-70s %s" % (i, s[:70], etat))
+                if not dedans:
+                    hors.append((i, s[:70]))
+        if hors:
+            say("")
+            say("    --- rendu HORS echelle dans ce fichier ---")
+            for i, s in hors:
+                say("    ligne %4d : %s" % (i, s))
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s (aucun fichier modifie)" % ("OK" if ok else "ARRET"))
+print("")
+print("FINI - aucun fichier touche. Envoyez rapport68.txt")

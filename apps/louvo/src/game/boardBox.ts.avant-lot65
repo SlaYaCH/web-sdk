@@ -120,7 +120,7 @@ const MARGE_COMPTEUR_PAYSAGE = SYMBOL_SIZE * 0.2;
 // En portrait, l'espace juste sous la grille est occupe par les
 // presentoirs After Dark : on descend les compteurs en dessous.
 // Unite : le point de mise en page, comme dans AfterDarkStreakDisplay.
-const MARGE_COMPTEUR_PORTRAIT = 60;
+const MARGE_COMPTEUR_PORTRAIT = 380;
 // ==================================================================
 
 export const counterAnchor = (tier: BoardTier) => {

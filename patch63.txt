@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 65 : compteurs en portrait, juste sous la grille
+#
+# ETAT CONFIRME PAR rapport70 : le lot 63 s'est applique en entier,
+# les 8 controles sont OK. Le code est bien la.
+#
+# Mon calcul dit que les compteurs tombent a y = 1078 sur une boite de
+# 1422, soit environ 780 px sur un ecran de 1030 - en pleine zone
+# visible. Seb ne les voit nulle part. Mon calcul est donc faux quelque
+# part, ou ils ne sont pas dessines du tout.
+#
+# UN SEUL CHIFFRE CHANGE : MARGE_COMPTEUR_PORTRAIT, de 380 a 60.
+# Ils se posent alors juste sous le cadre, impossibles a rater.
+#   - s'ils apparaissent -> c'etait bien un probleme de placement, il
+#     ne reste qu'a choisir la bonne hauteur
+#   - s'ils n'apparaissent toujours pas -> ils ne sont pas dessines, et
+#     la cause est ailleurs : inutile de deplacer quoi que ce soit
+#
+# CORRECTION D'UNE FAILLE DE MES PROPRES SCRIPTS :
+# jusqu'ici ils se terminaient avec un code de succes meme en cas
+# d'echec, donc le `&& pnpm run build` se lancait quand meme et le
+# build masquait le probleme. Ce script sort en erreur si ca echoue.
+#
+# SAUVEGARDE : boardBox.ts.avant-lot65
+# Rapport ecrit apres chaque ligne. AUCUN BUILD.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 patch63.txt
+# ============================================================
+import os
+import re
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport72.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+P = "apps/louvo/src/game/boardBox.ts"
+MOTIF = re.compile(r"const MARGE_COMPTEUR_PORTRAIT = (-?[0-9.]+);")
+NOUVELLE_VALEUR = 60
+
+
+def main():
+    if not os.path.exists(P + ".avant-lot65"):
+        shutil.copyfile(P, P + ".avant-lot65")
+    txt = open(P, encoding="utf-8").read()
+
+    say("===== 1. VALEUR ACTUELLE =====")
+    m = MOTIF.search(txt)
+    if not m:
+        raise AssertionError("MARGE_COMPTEUR_PORTRAIT introuvable dans %s - le lot 63 "
+                             "n'est pas en place. RIEN MODIFIE." % P)
+    ancienne = float(m.group(1))
+    say("  MARGE_COMPTEUR_PORTRAIT = %g" % ancienne)
+
+    if ancienne == NOUVELLE_VALEUR:
+        say("  deja a %g, rien a faire" % NOUVELLE_VALEUR)
+    else:
+        txt = MOTIF.sub("const MARGE_COMPTEUR_PORTRAIT = %d;" % NOUVELLE_VALEUR, txt, count=1)
+        with open(P, "w", encoding="utf-8") as f:
+            f.write(txt)
+        say("  -> %d" % NOUVELLE_VALEUR)
+
+    say("")
+    say("===== 2. VERIFICATION =====")
+    apres = open(P, encoding="utf-8").read()
+    m2 = MOTIF.search(apres)
+    ok = bool(m2) and float(m2.group(1)) == NOUVELLE_VALEUR
+    say("  valeur relue : %s   %s" % (m2.group(1) if m2 else "introuvable",
+                                      "OK" if ok else "*** ECHEC ***"))
+    say("  counterAnchor toujours present : %s" % ("oui" if "counterAnchor" in apres else "NON"))
+
+    say("")
+    say("===== 3. OU ILS DEVRAIENT TOMBER =====")
+    f_bot = 657 / 941.0
+    for nom, mw, mh, ecran_h in (("portrait 800x1422", 800, 1422, 1030),
+                                 ("tablette 1000x1000", 1000, 1000, 1000)):
+        largeur = (0.86 * mw) / (1166 / 1672.0 - 491 / 1672.0)
+        bh = largeur / (1672 / 941.0)
+        bas = 0.02 * mh + bh * f_bot
+        say("  %-20s bas de grille %7.1f   avant %7.1f   apres %7.1f   (boite %d de haut)"
+            % (nom, bas, bas + ancienne, bas + NOUVELLE_VALEUR, mh))
+    say("")
+    say("  En tablette la boite ne fait que 1000 de haut : l'ancienne valeur")
+    say("  sortait de la boite. En portrait 1422 elle tenait - c'est justement")
+    say("  ce que ce test doit trancher.")
+
+    say("")
+    say("===== 4. CE QUE JE DOIS SAVOIR =====")
+    say("  Apres le build, en free spins :")
+    say("   - compteurs visibles sous la grille -> probleme de placement,")
+    say("     dites-moi juste la hauteur qui vous plait")
+    say("   - toujours rien -> ils ne sont pas dessines, j'arrete de")
+    say("     deplacer des chiffres et je cherche la vraie cause")
+    return ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON - AUCUN FICHIER ENREGISTRE =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI - rapport72.txt")
+
+# Sortie en erreur si ca a echoue, pour que le `&& pnpm run build`
+# ne se lance PAS et ne masque pas le probleme.
+sys.exit(0 if ok else 1)

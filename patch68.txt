@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - lot 71 : fond noir uni derriere la grille
+#
+# LE PROBLEME
+# Depuis que le decor est une image pleine etiree sur tout l'ecran, les
+# parties transparentes des symboles laissent voir la scene au travers.
+# Ca se voit surtout sur les wilds, dont les bords sont decoupes.
+# Avant, le fond contenait la grille et faisait ecran ; ce n'est plus
+# le cas.
+#
+# LA CORRECTION
+# Un rectangle noir opaque, dessine exactement sur la zone de grille
+# lue dans boardBox, DERRIERE les symboles et DEVANT le decor.
+#
+# Il deborde volontairement de quelques unites : le trou du cadre est
+# legerement plus petit que la zone de grille (495-1162 contre 491-1166
+# sur l'image), donc le debord passe sous le cadre et ne se voit pas.
+#
+# NOUVEAU FICHIER : components/BoardBackdrop.svelte
+# MODIFIE        : components/Game.svelte (import + une balise)
+# Sauvegarde     : Game.svelte.avant-lot71
+#
+# Sort en erreur si ca echoue, pour bloquer le build. AUCUN BUILD ICI.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 patch68.txt
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport78.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+BACKDROP = """<script lang="ts">
+	import { Rectangle } from 'pixi-svelte';
+
+	import { getContext } from '../game/context';
+	import { boardBox, gridFracs } from '../game/boardBox';
+
+	// ------------------------------------------------------------------
+	// FOND NOIR DERRIERE LA GRILLE
+	//
+	// Depuis que le decor est une image pleine, les parties transparentes
+	// des symboles laissent voir la scene au travers - visible surtout sur
+	// les wilds, dont les bords sont decoupes. Avant, le fond contenait la
+	// grille et faisait ecran.
+	//
+	// On dessine donc un aplat noir sur la zone de grille exacte, derriere
+	// les symboles et devant le decor. Le leger debord passe sous le
+	// cadre : le trou du cadre (495-1162 sur l'image) est un peu plus
+	// petit que la zone de grille (491-1166).
+	// ------------------------------------------------------------------
+
+	// ==================================================================
+	// REGLAGES
+	// ==================================================================
+	// Debord, en unites de mise en page. Augmenter si un liseré clair
+	// apparait sur un bord.
+	const DEBORD = 4;
+
+	// Opacite de l'aplat. 1 = noir franc.
+	const OPACITE = 1;
+	// ==================================================================
+
+	const context = getContext();
+
+	const box = $derived(boardBox(context.stateGame.tier));
+	const f = $derived(gridFracs(context.stateGame.tier));
+
+	const zone = $derived({
+		x: box.x + box.width * f.left - DEBORD,
+		y: box.y + box.height * f.top - DEBORD,
+		width: box.width * (f.right - f.left) + DEBORD * 2,
+		height: box.height * (f.bottom - f.top) + DEBORD * 2,
+	});
+</script>
+
+<Rectangle {...zone} backgroundColor={0x000000} backgroundAlpha={OPACITE} zIndex={-1} />
+"""
+
+IMPORT_ANCIEN = "\timport LouvoBottomBar from './LouvoBottomBar.svelte';"
+IMPORT_NOUVEAU = ("\timport LouvoBottomBar from './LouvoBottomBar.svelte';\n"
+                  "\timport BoardBackdrop from './BoardBackdrop.svelte';")
+
+BALISE_ANCIENNE = """		<MainContainer>
+			<Board />
+			<Anticipations />
+		</MainContainer>"""
+
+BALISE_NOUVELLE = """		<MainContainer>
+			<BoardBackdrop />
+			<Board />
+			<Anticipations />
+		</MainContainer>"""
+
+
+def main():
+    tout_ok = True
+
+    # ---------- 1. le nouveau composant ----------
+    p = "apps/louvo/src/components/BoardBackdrop.svelte"
+    say("===== 1. %s =====" % p)
+    if os.path.exists(p):
+        say("  existe deja, reecrit")
+    else:
+        say("  cree")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(BACKDROP)
+
+    # ---------- 2. Game.svelte ----------
+    g = "apps/louvo/src/components/Game.svelte"
+    say("")
+    say("===== 2. %s =====" % g)
+    if not os.path.exists(g + ".avant-lot71"):
+        shutil.copyfile(g, g + ".avant-lot71")
+    txt = open(g, encoding="utf-8").read()
+
+    if "BoardBackdrop" in txt:
+        say("  deja branche")
+    else:
+        n = txt.count(IMPORT_ANCIEN)
+        if n != 1:
+            raise AssertionError("ligne d'import LouvoBottomBar trouvee %d fois "
+                                 "(attendu 1) - RIEN ENREGISTRE" % n)
+        txt = txt.replace(IMPORT_ANCIEN, IMPORT_NOUVEAU, 1)
+        say("  import ajoute")
+
+        n = txt.count(BALISE_ANCIENNE)
+        if n != 1:
+            raise AssertionError("bloc <MainContainer><Board/> trouve %d fois "
+                                 "(attendu 1) - RIEN ENREGISTRE" % n)
+        txt = txt.replace(BALISE_ANCIENNE, BALISE_NOUVELLE, 1)
+        say("  <BoardBackdrop /> place avant <Board />, donc derriere les symboles")
+
+        with open(g, "w", encoding="utf-8") as f:
+            f.write(txt)
+
+    # ---------- 3. verification ----------
+    say("")
+    say("===== 3. VERIFICATION =====")
+    controles = [
+        (p, "boardBox(context.stateGame.tier)", True),
+        (p, "backgroundColor={0x000000}", True),
+        (p, "zIndex={-1}", True),
+        (g, "import BoardBackdrop from './BoardBackdrop.svelte';", True),
+        (g, "<BoardBackdrop />", True),
+    ]
+    for chemin, motif, attendu in controles:
+        present = motif in open(chemin, encoding="utf-8").read()
+        if present != attendu:
+            tout_ok = False
+        say("  %-24s %-46s %-8s %s" % (
+            os.path.basename(chemin), motif[:46],
+            "present" if present else "absent",
+            "OK" if present == attendu else "*** ECHEC ***"))
+
+    # ---------- 4. ordre de rendu ----------
+    say("")
+    say("===== 4. ORDRE DE RENDU =====")
+    txt = open(g, encoding="utf-8").read().split("\n")
+    dedans = False
+    for i, l in enumerate(txt, 1):
+        s = l.strip()
+        if s.startswith("<MainContainer") and not dedans:
+            if any("<Board />" in x for x in txt[i - 1:i + 5]):
+                dedans = True
+                say("%4d| %s" % (i, s))
+                continue
+        if dedans:
+            say("%4d| %s" % (i, s))
+            if "</MainContainer>" in s:
+                break
+    say("")
+    say("  Le decor est dessine bien avant, hors MainContainer, en zIndex")
+    say("  negatif. L'aplat noir se glisse entre les deux.")
+
+    # ---------- 5. zone couverte ----------
+    say("")
+    say("===== 5. ZONE COUVERTE (portrait 800x1422) =====")
+    fl, fr = 491 / 1672.0, 1166 / 1672.0
+    ft, fb = 130 / 941.0, 657 / 941.0
+    largeur = (0.86 * 800) / (fr - fl)
+    hauteur = largeur / (1672 / 941.0)
+    bx = 800 * 0.5 - largeur * ((fl + fr) / 2)
+    by = 0.02 * 1422
+    say("  aplat noir   x %7.1f -> %7.1f     y %7.1f -> %7.1f"
+        % (bx + largeur * fl - 4, bx + largeur * fr + 4,
+           by + hauteur * ft - 4, by + hauteur * fb + 4))
+    say("  trou du cadre x %7.1f -> %7.1f     y %7.1f -> %7.1f"
+        % (bx + largeur * (495 / 1672.0), bx + largeur * (1162 / 1672.0),
+           by + hauteur * (134 / 941.0), by + hauteur * (653 / 941.0)))
+    say("")
+    say("  L'aplat est plus grand que le trou sur les quatre bords : le")
+    say("  debord passe sous le cadre et ne se voit pas.")
+    say("")
+    say("  Reglages dans BoardBackdrop.svelte : DEBORD (4) et OPACITE (1).")
+    return tout_ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI - envoyez rapport78.txt")
+sys.exit(0 if ok else 1)
