@@ -72,3 +72,10 @@ patch_*.txt
 
 # Assets de la demo d'origine, mis a l'ecart (recuperables ici ou via git)
 _demo_assets_backup/
+
+# Fichiers de travail Louvo (scripts, rapports, sauvegardes)
+patch*.txt
+recon*.txt
+audit_assets.txt
+*.avant-lot*
+sortie.txt

@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - nettoyage du suivi git
+#
+# LE PROBLEME
+# Le commit a87247a a pris 41 fichiers, dont une trentaine qui n'ont
+# rien a faire dans le depot :
+#   - mes scripts    patch61.txt, recon40.txt, patch70_1.txt...
+#   - les sauvegardes *.avant-lot63, *.avant-lot70, *.avant-lot76...
+#
+# CAUSE : le .gitignore contient `patch_*.txt` AVEC UN TIRET BAS, qui ne
+# correspond a aucun de mes fichiers (patch61.txt, pas patch_61.txt).
+# Et les sauvegardes .avant-lot* n'etaient couvertes par rien.
+#
+# CE QUE FAIT CE SCRIPT
+#   1) complete le .gitignore avec les bons motifs (ajout seulement,
+#      aucune ligne existante n'est touchee)
+#   2) retire ces fichiers du SUIVI git - `git rm --cached`, donc ils
+#      RESTENT sur le disque. Vos sauvegardes ne sont pas supprimees.
+#   3) ne commit PAS : la commande vous est donnee a la fin, vous
+#      gardez la main.
+#
+# Rien n'a ete pousse, donc rien n'est perdu ni reecrit ailleurs.
+#
+# Sort en erreur si ca echoue. AUCUN BUILD.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 nettoyage_git.txt
+# ============================================================
+import os
+import re
+import subprocess
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport84.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def git(*args):
+    r = subprocess.run(["git"] + list(args), capture_output=True, text=True)
+    return r.returncode, r.stdout, r.stderr
+
+
+# Motifs a ignorer. Les fichiers de travail, pas le code du jeu.
+MOTIFS = [
+    "patch*.txt",
+    "recon*.txt",
+    "rapport*.txt",
+    "build_log*.txt",
+    "audit_assets.txt",
+    "*.avant-lot*",
+    "sortie.txt",
+    "etat.txt",
+    "hang_report*.txt",
+    "run_output*.txt",
+]
+
+# Un fichier est retire du suivi s'il correspond a l'un de ces motifs.
+RX = [
+    re.compile(r"(^|/)patch[^/]*\.txt$"),
+    re.compile(r"(^|/)recon[^/]*\.txt$"),
+    re.compile(r"(^|/)rapport[^/]*\.txt$"),
+    re.compile(r"(^|/)build_log[^/]*\.txt$"),
+    re.compile(r"(^|/)audit_assets\.txt$"),
+    re.compile(r"\.avant-lot[^/]*$"),
+    re.compile(r"(^|/)(sortie|etat)\.txt$"),
+    re.compile(r"(^|/)(hang_report|run_output)[^/]*\.txt$"),
+]
+
+
+def main():
+    # ---------- 0. on est bien dans un depot ----------
+    code, out, err = git("rev-parse", "--is-inside-work-tree")
+    if code != 0:
+        raise AssertionError("pas un depot git ici - RIEN FAIT")
+
+    code, out, _ = git("log", "-1", "--pretty=%h %s")
+    say("===== 0. DERNIER COMMIT =====")
+    say("  " + out.strip())
+
+    # ---------- 1. .gitignore ----------
+    say("")
+    say("===== 1. .gitignore =====")
+    chemin = ".gitignore"
+    existant = ""
+    if os.path.exists(chemin):
+        with open(chemin, encoding="utf-8", errors="ignore") as f:
+            existant = f.read()
+    lignes = set(l.strip() for l in existant.split("\n"))
+
+    manquants = [m for m in MOTIFS if m not in lignes]
+    if not manquants:
+        say("  tous les motifs sont deja presents")
+    else:
+        bloc = "\n# Fichiers de travail Louvo (scripts, rapports, sauvegardes)\n" + \
+               "\n".join(manquants) + "\n"
+        with open(chemin, "a", encoding="utf-8") as f:
+            if existant and not existant.endswith("\n"):
+                f.write("\n")
+            f.write(bloc)
+        for m in manquants:
+            say("  ajoute : %s" % m)
+
+    # ---------- 2. fichiers suivis a retirer ----------
+    say("")
+    say("===== 2. FICHIERS RETIRES DU SUIVI =====")
+    say("  (ils RESTENT sur le disque, seul git cesse de les suivre)")
+    say("")
+    code, out, err = git("ls-files")
+    if code != 0:
+        raise AssertionError("git ls-files a echoue : %s" % err.strip())
+    suivis = [l for l in out.split("\n") if l.strip()]
+    a_retirer = [p for p in suivis if any(rx.search(p) for rx in RX)]
+
+    if not a_retirer:
+        say("  aucun - le suivi est deja propre")
+    else:
+        for p in a_retirer:
+            say("  %s" % p)
+        say("")
+        say("  total : %d fichiers" % len(a_retirer))
+        # par paquets, pour ne pas depasser la longueur de ligne
+        for i in range(0, len(a_retirer), 50):
+            code, out, err = git("rm", "--cached", "--quiet", *a_retirer[i:i + 50])
+            if code != 0:
+                raise AssertionError("git rm --cached a echoue : %s" % err.strip())
+        say("  retires du suivi")
+
+    # ---------- 3. verification ----------
+    say("")
+    say("===== 3. VERIFICATION =====")
+    code, out, _ = git("ls-files")
+    restants = [p for p in out.split("\n") if p.strip() and any(rx.search(p) for rx in RX)]
+    ok = len(restants) == 0
+    say("  fichiers de travail encore suivis : %d   %s" % (
+        len(restants), "OK" if ok else "*** ECHEC ***"))
+    for p in restants[:20]:
+        say("    %s" % p)
+
+    sur_disque = sum(1 for p in a_retirer if os.path.exists(p))
+    say("  toujours presents sur le disque    : %d / %d   %s" % (
+        sur_disque, len(a_retirer), "OK" if sur_disque == len(a_retirer) else "*** ATTENTION ***"))
+    if sur_disque != len(a_retirer):
+        ok = False
+
+    # ---------- 4. etat ----------
+    say("")
+    say("===== 4. ETAT DU DEPOT =====")
+    code, out, _ = git("status", "--short")
+    lignes_statut = [l for l in out.split("\n") if l.strip()]
+    for l in lignes_statut[:40]:
+        say("  " + l)
+    if len(lignes_statut) > 40:
+        say("  ... (%d lignes de plus)" % (len(lignes_statut) - 40))
+
+    say("")
+    say("===== 5. A FAIRE ENSUITE =====")
+    say("  Rien n'est commite par ce script. Pour enregistrer le menage :")
+    say("")
+    say('    git add -A && git commit -m "Retire les fichiers de travail du suivi git"')
+    say("")
+    say("  Puis le push, une fois l'authentification reglee :")
+    say("    gh auth status")
+    say("    gh auth login")
+    say("    gh auth setup-git")
+    say("    git push")
+    say("")
+    say("  Le push echouait avec 403 : le jeton du Codespace n'a pas le")
+    say("  droit d'ecriture sur le depot. Le commit local, lui, est bon.")
+    return ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI - envoyez rapport84.txt")
+sys.exit(0 if ok else 1)
