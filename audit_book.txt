@@ -1,0 +1,323 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - l'auditeur de books (LECTURE SEULE)
+#
+# ============================================================
+# A QUOI IL SERT
+# ============================================================
+#   Pour chaque tour d'un book, il compare TROIS chiffres qui doivent
+#   toujours dire la meme chose :
+#
+#     1. la somme des lignes affichees au joueur   (winInfo.totalWin)
+#     2. le montant annonce par l'ecran de gain    (setWin.amount)
+#     3. ce que le total du round a REELLEMENT     (delta de
+#        augmente sur ce tour                       setTotalWin)
+#
+#   Le troisieme est la verite comptable : c'est lui qui suit
+#   l'argent. Quand les trois divergent, le script le dit et montre
+#   lequel ment.
+#
+# ============================================================
+# POURQUOI CET OUTIL PLUTOT QU'UNE CORRECTION
+# ============================================================
+#   Sur le premier book, setWin re-emettait le montant du tour
+#   precedent sur un tour VIDE. Vous venez d'en voir un autre ou le
+#   tour a REELLEMENT paye 1,20 et ou l'ecran a quand meme montre le
+#   montant d'avant. Ce n'est donc pas le meme cas, et mon garde du
+#   lot 110 ne pouvait rien y faire - il ne bloque que les tours sans
+#   aucune ligne.
+#
+#   Avant d'ecrire un second garde a l'aveugle, je veux voir la forme
+#   exacte du defaut sur plusieurs books. Cet outil transforme chaque
+#   book que vous exportez en verdict, et le tableau qu'il produit se
+#   transmet tel quel a l'assistant du Math SDK.
+#
+# ============================================================
+# COMMENT L'UTILISER
+# ============================================================
+#   Depuis Stake Engine, exportez le JSON du round (le meme bouton
+#   que pour le fichier que vous m'avez envoye). Deposez-en autant
+#   que vous voulez dans un dossier books/ a la racine :
+#
+#       mkdir -p /workspaces/web-sdk/books
+#       (y deposer les .json)
+#       cd /workspaces/web-sdk && python3 audit_book.txt
+#
+#   Ou directement :
+#       python3 audit_book.txt mon_fichier.json
+#
+# NE MODIFIE RIEN. AUCUN BUILD.
+# ============================================================
+import json
+import os
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport_books.txt"
+report = []
+
+DOSSIER = "books"
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def evenements(data):
+    """Le tableau d'evenements, quelle que soit la forme du fichier."""
+    for chemin in (("round", "state"), ("state",), ("events",),
+                   ("round", "events")):
+        noeud = data
+        ok = True
+        for cle in chemin:
+            if isinstance(noeud, dict) and cle in noeud:
+                noeud = noeud[cle]
+            else:
+                ok = False
+                break
+        if ok and isinstance(noeud, list):
+            return noeud
+    return None
+
+
+def entete(data):
+    r = data.get("round") if isinstance(data, dict) else None
+    if not isinstance(r, dict):
+        return {}
+    return {
+        "betID": r.get("betID"),
+        "mode": r.get("mode"),
+        "amount": r.get("amount"),
+        "payout": r.get("payout"),
+        "mult": r.get("payoutMultiplier"),
+    }
+
+
+def auditer(chemin):
+    say("")
+    say("=" * 62)
+    say("  %s" % os.path.basename(chemin))
+    say("=" * 62)
+    try:
+        data = json.loads(open(chemin, encoding="utf-8").read())
+    except Exception as e:
+        say("  illisible : %s" % e)
+        return None
+
+    evts = evenements(data)
+    if evts is None:
+        say("  aucun tableau d'evenements reconnu dans ce fichier")
+        return None
+
+    e = entete(data)
+    if e:
+        say("  betID %-12s mode %-22s mise %s"
+            % (e.get("betID"), e.get("mode"), e.get("amount")))
+        say("  payout %-12s soit %s x"
+            % (e.get("payout"), e.get("mult")))
+
+    # --- decoupage en tours : chaque reveal ouvre un tour ---
+    tours = []
+    courant = None
+    for ev in evts:
+        t = ev.get("type")
+        if t == "reveal":
+            if courant:
+                tours.append(courant)
+            courant = {"index": ev.get("index"), "gameType": ev.get("gameType"),
+                       "winInfo": None, "lignes": None, "setWin": None,
+                       "winLevel": None, "total": None}
+        if courant is None:
+            continue
+        if t == "winInfo":
+            courant["winInfo"] = ev.get("totalWin")
+            courant["lignes"] = len(ev.get("wins") or [])
+        elif t == "setWin":
+            courant["setWin"] = ev.get("amount")
+            courant["winLevel"] = ev.get("winLevel")
+        elif t == "setTotalWin":
+            courant["total"] = ev.get("amount")
+    if courant:
+        tours.append(courant)
+
+    say("")
+    say("  %-6s %-9s %8s %6s %9s %7s %9s  %s"
+        % ("event", "type", "lignes", "nb", "annonce", "niveau", "delta",
+           "verdict"))
+    say("  " + "-" * 74)
+
+    precedent_total = 0
+    anomalies = []
+    for t in tours:
+        total = t["total"]
+        delta = None if total is None else total - precedent_total
+        if total is not None:
+            precedent_total = total
+
+        lignes = t["winInfo"]
+        annonce = t["setWin"]
+
+        # La verite comptable, c'est le delta du total du round.
+        souci = []
+        if delta is not None:
+            if lignes is not None and lignes != delta:
+                souci.append("lignes != delta")
+            if annonce is not None and annonce != delta:
+                souci.append("ANNONCE != delta")
+            if annonce is None and delta > 0:
+                souci.append("gain non annonce")
+        if lignes is not None and annonce is not None and lignes != annonce:
+            souci.append("lignes != annonce")
+
+        verdict = "OK" if not souci else " + ".join(souci)
+        if souci:
+            anomalies.append((t, souci, delta))
+
+        say("  %-6s %-9s %8s %6s %9s %7s %9s  %s"
+            % (t["index"],
+               (t["gameType"] or "")[:9],
+               "-" if lignes is None else lignes,
+               "-" if t["lignes"] is None else t["lignes"],
+               "-" if annonce is None else annonce,
+               "-" if t["winLevel"] is None else t["winLevel"],
+               "-" if delta is None else delta,
+               verdict))
+
+    say("")
+    say("  %d tour(s), %d anomalie(s)" % (len(tours), len(anomalies)))
+
+    if anomalies:
+        say("")
+        say("  --- LE DETAIL DES ANOMALIES ---")
+        for t, souci, delta in anomalies:
+            say("")
+            say("      tour ouvert a l'event %s (%s)"
+                % (t["index"], t["gameType"]))
+            say("        somme des lignes affichees : %s (%s ligne(s))"
+                % (t["winInfo"], t["lignes"]))
+            say("        montant annonce par setWin : %s (niveau %s)"
+                % (t["setWin"], t["winLevel"]))
+            say("        augmentation reelle du total : %s" % delta)
+            say("        -> %s" % " + ".join(souci))
+
+    # --- controle comptable global ---
+    say("")
+    say("  --- CONTROLE COMPTABLE ---")
+    final = None
+    fsend = None
+    for ev in evts:
+        if ev.get("type") == "finalWin":
+            final = ev.get("amount")
+        if ev.get("type") == "freeSpinEnd":
+            fsend = ev.get("amount")
+    dernier_total = precedent_total
+    say("      dernier setTotalWin : %s" % dernier_total)
+    if fsend is not None:
+        say("      freeSpinEnd        : %s   %s"
+            % (fsend, "OK" if fsend == dernier_total else "*** ECART ***"))
+    if final is not None:
+        say("      finalWin           : %s   %s"
+            % (final, "OK" if final == dernier_total else "*** ECART ***"))
+    if e.get("mult") is not None and final is not None:
+        # les montants de book sont en centiemes de mise
+        attendu = final / 100.0
+        say("      payoutMultiplier   : %s   attendu %.2f   %s"
+            % (e.get("mult"), attendu,
+               "OK" if abs(attendu - float(e["mult"])) < 0.005 else "*** ECART ***"))
+        say("")
+        say("      Si cette derniere ligne est OK, l'ARGENT est juste :")
+        say("      seul l'affichage est en cause.")
+
+    return len(anomalies)
+
+
+def main():
+    cibles = [a for a in sys.argv[1:] if a.lower().endswith(".json")]
+    if not cibles:
+        if os.path.isdir(DOSSIER):
+            cibles = [os.path.join(DOSSIER, f)
+                      for f in sorted(os.listdir(DOSSIER))
+                      if f.lower().endswith(".json")]
+        else:
+            cibles = [f for f in sorted(os.listdir("."))
+                      if f.lower().endswith(".json")
+                      and os.path.getsize(f) < 5_000_000]
+
+    say("===== L'AUDITEUR DE BOOKS =====")
+    say("")
+    say("  lignes  = somme des gains affiches au joueur (winInfo.totalWin)")
+    say("  nb      = nombre de lignes gagnantes")
+    say("  annonce = montant de l'ecran de gain (setWin.amount)")
+    say("  delta   = augmentation REELLE du total du round")
+    say("")
+    say("  Le delta est la verite comptable. Les trois doivent coincider.")
+
+    if not cibles:
+        say("")
+        say("  Aucun fichier .json trouve.")
+        say("")
+        say("  Deposez vos exports de round dans un dossier books/ :")
+        say("      mkdir -p books")
+        say("  puis relancez. Ou passez le fichier en argument :")
+        say("      python3 audit_book.txt mon_round.json")
+        return False
+
+    say("")
+    say("  %d fichier(s) a auditer" % len(cibles))
+
+    total_anomalies = 0
+    lus = 0
+    for c in cibles:
+        n = auditer(c)
+        if n is not None:
+            lus += 1
+            total_anomalies += n
+
+    say("")
+    say("=" * 62)
+    say("  BILAN : %d book(s) lu(s), %d anomalie(s) au total"
+        % (lus, total_anomalies))
+    say("=" * 62)
+    if total_anomalies:
+        say("")
+        say("  Envoyez-moi ce rapport. Le tableau se transmet tel quel a")
+        say("  l'assistant du Math SDK : il montre exactement quel")
+        say("  evenement ment et de combien.")
+    else:
+        say("")
+        say("  Aucune anomalie sur ces books. Si le defaut s'est produit,")
+        say("  c'est qu'il n'est pas dans ceux-la : exportez le round ou")
+        say("  vous l'avez vu.")
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+print("")
+print("FINI - envoyez rapport_books.txt")
+sys.exit(0 if ok else 1)

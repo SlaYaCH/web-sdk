@@ -20,6 +20,7 @@
 	import LouvoHistoryPanel from './LouvoHistoryPanel.svelte';
 	import { GameVersion, Modals } from 'components-ui-html';
 
+	import assets from '../game/assets';
 	import { getContext } from '../game/context';
 	import EnableSound from './EnableSound.svelte';
 	import EnableGameActor from './EnableGameActor.svelte';
@@ -36,6 +37,7 @@ import LouvoIntroScreen from './LouvoIntroScreen.svelte';
 	import AfterDarkTierPass from './AfterDarkTierPass.svelte';
 	import RetriggerToast from './RetriggerToast.svelte';
 	import BonusWinCounter from './BonusWinCounter.svelte';
+	import LouvoWinPanel from './LouvoWinPanel.svelte';
 import DevRevealPanel from './DevRevealPanel.svelte';
 	import FreeSpinIntro from './FreeSpinIntro.svelte';
 	import FreeSpinCounter from './FreeSpinCounter.svelte';
@@ -256,6 +258,9 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 		     les modes : voir counterAnchor dans game/boardBox.ts. -->
 		<FreeSpinCounter />
 		<BonusWinCounter />
+		<!-- Le gain du tour, sous la grille, en base game seulement :
+		     voir LouvoWinPanel.svelte. -->
+		<LouvoWinPanel />
 		<FreeSpinOutro />
 		<Transition />
 
@@ -352,67 +357,67 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p>Payouts shown are multiples of your total bet.</p>
 	<div class="louvo-paytable-grid">
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h1_le_r.png" alt="Le R" />
+			<img src="${assets.H1.src}" alt="Le R" />
 			<span>5&nbsp;&nbsp;20.00</span>
 			<span>4&nbsp;&nbsp;10.00</span>
 			<span>3&nbsp;&nbsp;4.00</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h2_inso.png" alt="Inso" />
+			<img src="${assets.H2.src}" alt="Inso" />
 			<span>5&nbsp;&nbsp;16.00</span>
 			<span>4&nbsp;&nbsp;8.00</span>
 			<span>3&nbsp;&nbsp;2.00</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h3_shanna.png" alt="Shanna" />
+			<img src="${assets.H3.src}" alt="Shanna" />
 			<span>5&nbsp;&nbsp;12.00</span>
 			<span>4&nbsp;&nbsp;6.00</span>
 			<span>3&nbsp;&nbsp;1.50</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h4_manu.png" alt="Manu" />
+			<img src="${assets.H4.src}" alt="Manu" />
 			<span>5&nbsp;&nbsp;8.00</span>
 			<span>4&nbsp;&nbsp;4.00</span>
 			<span>3&nbsp;&nbsp;1.00</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h5_indigo.png" alt="Indigo" />
+			<img src="${assets.H5.src}" alt="Indigo" />
 			<span>5&nbsp;&nbsp;6.00</span>
 			<span>4&nbsp;&nbsp;3.00</span>
 			<span>3&nbsp;&nbsp;0.70</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/portraits/h6_coca_cherry.png" alt="Coca Cherry" />
+			<img src="${assets.H6.src}" alt="Coca Cherry" />
 			<span>5&nbsp;&nbsp;4.00</span>
 			<span>4&nbsp;&nbsp;2.00</span>
 			<span>3&nbsp;&nbsp;0.50</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/basic-symbols/l1_verifie.png" alt="Verified" />
+			<img src="${assets.L1.src}" alt="Verified" />
 			<span>5&nbsp;&nbsp;2.00</span>
 			<span>4&nbsp;&nbsp;1.00</span>
 			<span>3&nbsp;&nbsp;0.20</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/basic-symbols/l2_message.png" alt="Message" />
+			<img src="${assets.L2.src}" alt="Message" />
 			<span>5&nbsp;&nbsp;2.00</span>
 			<span>4&nbsp;&nbsp;1.00</span>
 			<span>3&nbsp;&nbsp;0.20</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/basic-symbols/l3_flamme.png" alt="Flame" />
+			<img src="${assets.L3.src}" alt="Flame" />
 			<span>5&nbsp;&nbsp;2.00</span>
 			<span>4&nbsp;&nbsp;1.00</span>
 			<span>3&nbsp;&nbsp;0.20</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/basic-symbols/l4_coeur.png" alt="Heart" />
+			<img src="${assets.L4.src}" alt="Heart" />
 			<span>5&nbsp;&nbsp;2.00</span>
 			<span>4&nbsp;&nbsp;1.00</span>
 			<span>3&nbsp;&nbsp;0.20</span>
 		</div>
 		<div class="louvo-paytable-item">
-			<img src="/assets/sprites/special/wild.png" alt="Wild" />
+			<img src="${assets.W.src}" alt="Wild" />
 			<span>5&nbsp;&nbsp;20.00</span>
 		</div>
 	</div>

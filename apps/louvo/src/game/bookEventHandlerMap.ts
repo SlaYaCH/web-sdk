@@ -413,7 +413,60 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		await eventEmitter.broadcastAsync({ type: 'drawerUnfold' });
 		eventEmitter.broadcast({ type: 'drawerButtonHide' });
 	},
-	setWin: async (bookEvent: BookEventOfType<'setWin'>) => {
+	setWin: async (bookEvent: BookEventOfType<'setWin'>, { bookEvents }: BookEventContext) => {
+		// GARDE CONTRE LES GAINS FANTOMES
+		//
+		// Observe le 24/08 sur un book BONUS_AFTER_DARK : au tour special
+		// MATCH, le math a emis un winInfo SANS aucune ligne (event 30),
+		// puis un setWin de 3720 (event 31) - le montant exact du tour
+		// precedent. Le setTotalWin qui suit ne bougeait pas : le tour
+		// n'avait rien rapporte. Le joueur a vu un SUPER WIN de 18
+		// secondes sur un tour vide. L'argent, lui, etait juste.
+		//
+		// La cause est dans le math et doit y etre corrigee : c'est le
+		// book qui sert au replay et a l'audit. Ce garde ne fait que
+		// proteger l'affichage en attendant, et en cas de recidive.
+		//
+		// LA FORMULE, trouvee sur un second book (1254756332) :
+		//
+		//     29  setWin       1980            (tour precedent)
+		//     34  winInfo      totalWin: 160   (2 lignes)
+		//     35  setWin       2140, winLevel 6
+		//     36  setTotalWin  4990  (4830 + 160)
+		//
+		// 2140 = 1980 + 160. setWin n'ecrase pas le montant, il
+		// L'ADDITIONNE au precedent. Le premier book suit la meme
+		// formule : 3720 + 0 sur un tour sans ligne.
+		//
+		// D'ou la regle : si le winInfo du tour annonce un total
+		// DIFFERENT de celui du setWin, on n'affiche rien. Verifie sur
+		// les 23 tours des deux books - seuls les deux tours fautifs
+		// sont ecartes.
+		//
+		// Pourquoi ecarter plutot que corriger le montant : le
+		// winLevel vient du meme setWin fautif. On aurait eu un ecran
+		// BIG WIN pour un gain de 1,60. Le joueur n'est pas prive pour
+		// autant - les lignes sont dessinees par winInfo et le
+		// compteur de gain total suit setTotalWin, qui est juste.
+		//
+		// Un setWin sans aucun winInfo avant lui passe toujours :
+		// mieux vaut un affichage de trop qu'un vrai gain avale.
+		{
+			const index = (bookEvents as unknown[]).indexOf(bookEvent as unknown);
+			const precedent =
+				index > 0
+					? bookEvents
+							.slice(0, index)
+							.reverse()
+							.find((e) => e.type === 'winInfo' || e.type === 'reveal')
+					: undefined;
+			const annonceParLesLignes = (
+				precedent as unknown as { totalWin?: number } | undefined
+			)?.totalWin;
+			if (precedent?.type === 'winInfo' && annonceParLesLignes !== bookEvent.amount) {
+				return;
+			}
+		}
 		const winLevelData = winLevelMap[bookEvent.winLevel as WinLevel];
 		eventEmitter.broadcast({ type: 'winShow' });
 		// En bonus, la musique du palier ne prend pas la place de celle du bonus.
