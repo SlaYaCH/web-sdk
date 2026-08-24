@@ -12,25 +12,57 @@ import type { Position } from './types';
 import config from './config';
 const freeSpinMusicName = () => (stateGame.tier === 'after_dark' ? 'bgm_after_dark' : 'bgm_speed_dating');
 
-const winLevelSoundsPlay = ({ winLevelData }: { winLevelData: WinLevelData }) => {
+// La musique d'ambiance : celle qui doit tourner quand aucune mise en scene
+// de gain n'est en cours.
+//
+// `finDeBonus` existe pour une raison precise. A la fin d'un bonus,
+// stateGame.gameType vaut ENCORE 'freegame' : il n'est remis a 'basegame'
+// que plus bas dans freeSpinEnd, une fois la transition affichee (la faire
+// plus tot laisserait apercevoir la grille de base pendant le decompte).
+// Sans ce drapeau, la fin d'un bonus relancait la musique du bonus au moment
+// meme ou il se terminait, et plus rien ne l'arretait jusqu'au changement
+// de mode.
+const ambianceMusicale = ({ finDeBonus = false }: { finDeBonus?: boolean } = {}) => {
+	if (!finDeBonus && stateGame.gameType === 'freegame') return freeSpinMusicName();
+	if (stateBet.activeBetModeKey === 'SUPERSPIN') return 'bgm_speed_dating' as const;
+	return 'bgm_main_louvo' as const;
+};
+
+// Pendant un bonus, la musique d'un palier de gain ne remplace PLUS celle du
+// bonus : elle se faisait couper a chaque tour un peu genereux. La boucle de
+// pieces reste, donc le decompte garde du relief.
+//
+// MAX WIN fait exception : c'est un evenement unique, pas une interruption
+// repetee, et bgm_maxwin est un morceau a part. Passer cette constante a
+// false pour l'aligner sur les autres paliers.
+const MAX_WIN_GARDE_SA_MUSIQUE = true;
+
+const winLevelSoundsPlay = ({
+	winLevelData,
+	dansLeBonus = false,
+}: {
+	winLevelData: WinLevelData;
+	dansLeBonus?: boolean;
+}) => {
 	if (winLevelData?.alias === 'max') eventEmitter.broadcastAsync({ type: 'uiHide' });
 	if (winLevelData?.sound?.sfx) {
 		eventEmitter.broadcast({ type: 'soundOnce', name: winLevelData.sound.sfx });
 	}
-	if (winLevelData?.sound?.bgm) {
+	const garderMusiqueDuBonus =
+		dansLeBonus && !(winLevelData?.alias === 'max' && MAX_WIN_GARDE_SA_MUSIQUE);
+	if (winLevelData?.sound?.bgm && !garderMusiqueDuBonus) {
 		eventEmitter.broadcast({ type: 'soundMusic', name: winLevelData.sound.bgm });
 	}
 	if (winLevelData?.type === 'big') {
 		eventEmitter.broadcast({ type: 'soundLoop', name: 'sfx_bigwin_coinloop' });
 	}
 };
-const winLevelSoundsStop = () => {
+const winLevelSoundsStop = ({ finDeBonus = false }: { finDeBonus?: boolean } = {}) => {
 	eventEmitter.broadcast({ type: 'soundStop', name: 'sfx_bigwin_coinloop' });
-	if (stateBet.activeBetModeKey === 'SUPERSPIN' || stateGame.gameType === 'freegame') {
-		eventEmitter.broadcast({ type: 'soundMusic', name: freeSpinMusicName() });
-	} else {
-		eventEmitter.broadcast({ type: 'soundMusic', name: 'bgm_main_louvo' });
-	}
+	// Redemander une musique deja en train de jouer ne fait rien : createPlayMusic
+	// ignore l'etat 'playing'. Aucun risque de la faire repartir du debut, donc
+	// aucun blanc quand la musique du bonus n'a jamais ete coupee.
+	eventEmitter.broadcast({ type: 'soundMusic', name: ambianceMusicale({ finDeBonus }) });
 	eventEmitter.broadcastAsync({ type: 'uiShow' });
 };
 // Retour en base game : on repose une grille de base ALEATOIRE (aucun W, M, K
@@ -357,7 +389,11 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 			amount: bookEvent.amount,
 			winLevelData,
 		});
-		winLevelSoundsStop();
+		// finDeBonus : ici stateGame.gameType vaut ENCORE 'freegame' (il n'est
+		// remis a 'basegame' que quinze lignes plus bas, une fois la transition
+		// affichee). Sans ce drapeau, on relancait la musique du bonus juste au
+		// moment ou le bonus se termine.
+		winLevelSoundsStop({ finDeBonus: true });
 		eventEmitter.broadcast({ type: 'freeSpinOutroHide' });
 		eventEmitter.broadcast({ type: 'freeSpinCounterHide' });
 		stateUi.freeSpinCounterShow = false;
@@ -380,7 +416,8 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 	setWin: async (bookEvent: BookEventOfType<'setWin'>) => {
 		const winLevelData = winLevelMap[bookEvent.winLevel as WinLevel];
 		eventEmitter.broadcast({ type: 'winShow' });
-		winLevelSoundsPlay({ winLevelData });
+		// En bonus, la musique du palier ne prend pas la place de celle du bonus.
+		winLevelSoundsPlay({ winLevelData, dansLeBonus: stateGame.gameType === 'freegame' });
 		await eventEmitter.broadcastAsync({
 			type: 'winUpdate',
 			amount: bookEvent.amount,
