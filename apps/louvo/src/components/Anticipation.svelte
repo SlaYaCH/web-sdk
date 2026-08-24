@@ -30,7 +30,7 @@
 	const ANTICIPATION_LARGEUR = 1.0;
 	const ANTICIPATION_HAUTEUR = 1.06;
 
-	const COULEUR_CADRE = 0xff2d6a; // le rose de Louvo (lot 99)
+	const COULEUR_CADRE = 0xffd166; // le dore du cadre de la grille
 	const COULEUR_HALO = 0xff2d6a; // le rose de Louvo
 	const EPAISSEUR_CADRE = 4;
 	const HALO_MIN = 0.06; // opacité du halo au creux de la pulsation
