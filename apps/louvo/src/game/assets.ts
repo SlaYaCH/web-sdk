@@ -23,22 +23,6 @@ export default {
 			skeleton: new URL('../../assets/spines/fsIntro/fs_screen.json', import.meta.url).href,
 		},
 	},
-	anticipation: {
-		type: 'spine',
-		src: {
-			img: new URL('../../assets/spines/anticipation/anticipation.webp', import.meta.url).href,
-			atlas: new URL('../../assets/spines/anticipation/anticipation.atlas', import.meta.url).href,
-			skeleton: new URL('../../assets/spines/anticipation/anticipation.json', import.meta.url).href,
-		},
-	},
-	bigwin: {
-		type: 'spine',
-		src: {
-			img: new URL('../../assets/spines/bigwin/big_wins.webp', import.meta.url).href,
-			atlas: new URL('../../assets/spines/bigwin/big_wins.atlas', import.meta.url).href,
-			skeleton: new URL('../../assets/spines/bigwin/mm_bigwin.json', import.meta.url).href,
-		},
-	},
 	H1: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/portraits/h1_le_r.png', import.meta.url).href,
@@ -178,6 +162,31 @@ export default {
 	maxwinScreen: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/screens/maxwin.png', import.meta.url).href,
+	},
+	bigwinScreen: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/bigwin.webp', import.meta.url)
+			.href,
+	},
+	superwinScreen: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/superwin.webp', import.meta.url)
+			.href,
+	},
+	megawinScreen: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/megawin.webp', import.meta.url)
+			.href,
+	},
+	epicwinScreen: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/epicwin.webp', import.meta.url)
+			.href,
+	},
+	totalWinFrame: {
+		type: 'sprite',
+		src: new URL('../../assets/sprites/screens/total_win_frame.webp', import.meta.url)
+			.href,
 	},
 	bonus4ScatterScreen: {
 		type: 'sprite',
