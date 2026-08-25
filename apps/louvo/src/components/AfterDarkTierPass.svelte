@@ -31,6 +31,21 @@
 
 	const cardWidth = SYMBOL_SIZE * 3.2;
 	const cardHeight = SYMBOL_SIZE * 4.4;
+
+	// La carte "+3 tours" n'accompagne que les trois premiers paliers.
+	// Le 4e n'accorde pas de tours supplementaires : il ne montre que
+	// sa propre carte. Elle etait dessinee sans condition - d'ou les
+	// deux cartes au 4e palier.
+	const MATCH_CARD_BY_TIER: Record<number, string> = {
+		1: 'matchPlus3',
+		2: 'matchPlus3',
+		3: 'matchPlus3',
+	};
+
+	const carteMatch = $derived(MATCH_CARD_BY_TIER[visibleTier]);
+	// Seule, la carte du palier se centre au lieu de rester decalee a
+	// gauche comme si sa voisine etait toujours la.
+	const carteDuelX = $derived(carteMatch ? -cardWidth * 0.55 : 0);
 </script>
 
 {#if visibleTier > 0 && DUEL_CARD_BY_TIER[visibleTier]}
@@ -41,18 +56,20 @@
 		>
 			<Sprite
 				anchor={0.5}
-				x={-cardWidth * 0.55}
+				x={carteDuelX}
 				key={DUEL_CARD_BY_TIER[visibleTier]}
 				width={cardWidth}
 				height={cardHeight}
 			/>
-			<Sprite
-				anchor={0.5}
-				x={cardWidth * 0.55}
-				key="matchPlus3"
-				width={cardWidth}
-				height={cardHeight}
-			/>
+			{#if carteMatch}
+				<Sprite
+					anchor={0.5}
+					x={cardWidth * 0.55}
+					key={carteMatch}
+					width={cardWidth}
+					height={cardHeight}
+				/>
+			{/if}
 		</Container>
 	</MainContainer>
 {/if}

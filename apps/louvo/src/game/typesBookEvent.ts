@@ -85,6 +85,16 @@ type BookEventSuperlikeReveal = {
 	streakHearts: number;
 	likePositions: { reelIndex: number; rowIndex: number }[];
 };
+// Emis A LA PLACE de setWin quand le gain du tour atteint le plafond.
+// Vu sur le replay Match Frenzy 631 : winInfo, puis wincap, puis
+// setTotalWin - et pas le moindre setWin. C'est donc lui qui doit
+// declencher l'ecran MAX WIN.
+type BookEventWincap = {
+	index: number;
+	type: 'wincap';
+	amount: number;
+};
+
 export type BookEvent =
 	| BookEventReveal
 	| BookEventWinInfo
@@ -98,7 +108,8 @@ export type BookEvent =
 	// customised
 	| BookEventCreateBonusSnapshot
 	| BookEventMatchDuelReveal
-	| BookEventSuperlikeReveal;
+	| BookEventSuperlikeReveal
+	| BookEventWincap;
 export type Bet = BetType<BookEvent>;
 export type BookEventOfType<T> = Extract<BookEvent, { type: T }>;
 export type BookEventContext = { bookEvents: BookEvent[] };

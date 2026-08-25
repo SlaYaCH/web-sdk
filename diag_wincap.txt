@@ -1,0 +1,242 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - diagnostic : l'ecran MAX WIN et le 4e palier
+#            (LECTURE SEULE)
+#
+# ============================================================
+# CE QU'ON CHERCHE
+# ============================================================
+#   1. L'evenement 'wincap' : le nouveau run l'emet, le frontend
+#      dit "Missing bookEventHandler". Quels types d'evenements le
+#      jeu sait-il traiter aujourd'hui ?
+#
+#   2. Comment l'ecran MAX WIN est declenche actuellement, pour
+#      brancher 'wincap' dessus sans casser le reste.
+#
+#   3. Le presentoir Match Streak : pourquoi deux cartes au 4e
+#      palier au lieu d'une seule.
+#
+#   4. Les cles des images de cartes, pour preparer le remplacement.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 diag_wincap.txt
+#
+# NE MODIFIE RIEN. AUCUN BUILD.
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport_wincap.txt"
+report = []
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    try:
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def fichiers(racines, exts=(".ts", ".svelte")):
+    out = []
+    for r in racines:
+        if not os.path.isdir(r):
+            continue
+        for d, ss, ns in os.walk(r):
+            ss[:] = [x for x in ss if x not in ("node_modules", ".svelte-kit",
+                                                "dist", "build", ".turbo")]
+            for n in sorted(ns):
+                if n.endswith(exts):
+                    out.append(os.path.join(d, n))
+    return out
+
+
+LOUVO = ["apps/louvo/src"]
+PARTAGE = ["packages/utils-book", "packages/state-shared/src",
+           "packages/components-shared/src", "packages/constants-shared"]
+
+
+def bloc(titre):
+    say("")
+    say("=" * 66)
+    say("  " + titre)
+    say("=" * 66)
+
+
+def extrait(chemin, debut, fin, maxi=60):
+    """Affiche les lignes entre deux motifs."""
+    txt = lire(chemin)
+    if txt is None:
+        say("  %s introuvable" % chemin)
+        return
+    lignes = txt.split("\n")
+    i = None
+    for n, l in enumerate(lignes):
+        if debut in l:
+            i = n
+            break
+    if i is None:
+        say("  motif de debut introuvable : %s" % debut)
+        return
+    for n in range(i, min(len(lignes), i + maxi)):
+        say("    %4d | %s" % (n + 1, lignes[n][:110]))
+        if fin and fin in lignes[n] and n > i:
+            return
+
+
+def main():
+    if not os.path.isdir("apps/louvo/src"):
+        say("  lancez depuis /workspaces/web-sdk")
+        return False
+
+    say("===== DIAGNOSTIC MAX WIN / 4e PALIER =====")
+
+    # ---------------------------------------------------------------
+    bloc("1. LES TYPES D'EVENEMENTS QUE LE JEU SAIT TRAITER")
+    P = "apps/louvo/src/game/bookEventHandlerMap.ts"
+    txt = lire(P) or ""
+    say("  %s, %d lignes" % (P, len(txt.split("\n"))))
+    say("")
+    cles = re.findall(r"^\t([A-Za-z][A-Za-z0-9_]*)\s*:\s*(?:async\s*)?\(",
+                      txt, re.MULTILINE)
+    for c in cles:
+        say("    - %s" % c)
+    say("")
+    say("  %d handler(s). 'wincap' present : %s"
+        % (len(cles), "OUI" if "wincap" in cles else "*** NON ***"))
+
+    # ---------------------------------------------------------------
+    bloc("2. LE MOT 'wincap' AILLEURS DANS LE DEPOT")
+    trouve = False
+    for f in fichiers(LOUVO + PARTAGE):
+        c = lire(f) or ""
+        for i, l in enumerate(c.split("\n"), 1):
+            if "wincap" in l.lower():
+                trouve = True
+                say("    %s:%d" % (f.replace("apps/louvo/src/", "louvo/"), i))
+                say("        %s" % l.strip()[:105])
+    if not trouve:
+        say("    aucune occurrence - le type n'est connu nulle part,")
+        say("    y compris dans le typage des evenements du SDK.")
+
+    # ---------------------------------------------------------------
+    bloc("3. COMMENT L'ECRAN MAX WIN EST DECLENCHE AUJOURD'HUI")
+    for motif in ("maxwinScreen", "winLevelMap", "atteintBigWin",
+                  "winLevelSoundsPlay"):
+        say("")
+        say("  --- %s ---" % motif)
+        n = 0
+        for f in fichiers(LOUVO + PARTAGE):
+            c = lire(f) or ""
+            for i, l in enumerate(c.split("\n"), 1):
+                if motif in l:
+                    n += 1
+                    if n <= 8:
+                        say("    %s:%d"
+                            % (f.replace("apps/louvo/src/", "louvo/"), i))
+                        say("        %s" % l.strip()[:105])
+        if n == 0:
+            say("    aucune occurrence")
+        elif n > 8:
+            say("    ... et %d autre(s)" % (n - 8))
+
+    # ---------------------------------------------------------------
+    bloc("4. LE HANDLER setWin EN ENTIER")
+    extrait(P, "setWin: async", "},", maxi=70)
+
+    # ---------------------------------------------------------------
+    bloc("5. LE HANDLER setTotalWin EN ENTIER")
+    extrait(P, "setTotalWin: async", "},", maxi=40)
+
+    # ---------------------------------------------------------------
+    bloc("6. LE COMPOSANT DE L'ECRAN DE GAIN")
+    for f in fichiers(LOUVO):
+        base = os.path.basename(f)
+        if "WinLevel" in base or "MaxWin" in base:
+            say("")
+            say("  --- %s ---" % f.replace("apps/louvo/src/", "louvo/"))
+            c = lire(f) or ""
+            for i, l in enumerate(c.split("\n"), 1):
+                nue = l.strip()
+                if (nue.startswith("const ") or "$derived" in l
+                        or "CLE_ECRAN" in l or "subscribeOnMount" in l
+                        or "winShow" in l or "winHide" in l
+                        or "'max'" in l or '"max"' in l):
+                    say("    %4d | %s" % (i, l[:110]))
+
+    # ---------------------------------------------------------------
+    bloc("7. LE PRESENTOIR MATCH STREAK (le 4e palier)")
+    cibles = [f for f in fichiers(LOUVO)
+              if "Streak" in os.path.basename(f)
+              or "Tier" in os.path.basename(f)]
+    if not cibles:
+        say("  aucun fichier avec Streak ou Tier dans son nom.")
+        say("  recherche par contenu :")
+        for f in fichiers(LOUVO):
+            c = lire(f) or ""
+            if "streakTier" in c or "streakHearts" in c:
+                cibles.append(f)
+    for f in cibles:
+        say("")
+        say("  --- %s (%d lignes) ---"
+            % (f.replace("apps/louvo/src/", "louvo/"),
+               len((lire(f) or "").split("\n"))))
+        c = lire(f) or ""
+        for i, l in enumerate(c.split("\n"), 1):
+            if re.search(r"tier|palier|PALIER|TIER|carte|CARTE|card|CARD"
+                         r"|#each|{#if|5x|5X", l):
+                say("    %4d | %s" % (i, l[:110]))
+
+    # ---------------------------------------------------------------
+    bloc("8. LES CLES D'IMAGES DES CARTES")
+    a = lire("apps/louvo/src/game/assets.ts") or ""
+    for i, l in enumerate(a.split("\n"), 1):
+        if re.search(r"duel|match|streak|palier|tier", l, re.IGNORECASE):
+            say("    %4d | %s" % (i, l.strip()[:110]))
+
+    say("")
+    say("=" * 66)
+    say("  FIN")
+    say("=" * 66)
+    say("")
+    say("  Envoyez-moi rapport_wincap.txt. Rien n'a ete modifie.")
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+print("")
+print("FINI - envoyez rapport_wincap.txt")
+sys.exit(0 if ok else 1)

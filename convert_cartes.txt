@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - les 5 cartes After Dark : PNG -> WebP
+#
+# ============================================================
+# CE QU'IL FAIT
+# ============================================================
+#   Vos nouvelles cartes sont en PNG, mais assets.ts pointe sur des
+#   .webp. Ce script convertit les cinq, sous le meme nom, au meme
+#   endroit :
+#
+#       apps/louvo/assets/sprites/after-dark/
+#           duel_plus2.png  -> duel_plus2.webp
+#           duel_plus3.png  -> duel_plus3.webp
+#           duel_plus4.png  -> duel_plus4.webp
+#           duel_5x.png     -> duel_5x.webp
+#           match_plus3.png -> match_plus3.webp
+#
+#   La transparence est conservee.
+#
+# ============================================================
+# CE QU'IL NE FAIT PAS
+# ============================================================
+#   Il ne supprime rien. Les PNG sont deplaces dans un sous-dossier
+#   _png_originaux/ : si une conversion vous deplait, l'original est
+#   toujours la.
+#
+#   Il ne redimensionne pas. Il vous DIT quelles sont les dimensions
+#   et ce qu'elles coutent en memoire video, et on decide ensuite.
+#
+# ============================================================
+# LES NOMS DE CLES NE CHANGENT PAS
+# ============================================================
+#   assets.ts appelle ces images duelPlus2, duelPlus3, duelPlus4,
+#   duel5x et matchPlus3. Ce sont des noms de variables, invisibles
+#   pour un joueur : inutile de les renommer parce que les cartes
+#   s'appellent maintenant MATCH et SPIN.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 convert_cartes.txt
+#
+# AUCUN BUILD.
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport_cartes.txt"
+report = []
+
+CARTES = ["duel_plus2", "duel_plus3", "duel_plus4", "duel_5x", "match_plus3"]
+
+
+def trouver_dossier():
+    """Je ne devine plus le chemin : je cherche le dossier qui contient
+    vos cartes. Au premier essai j'avais suppose
+    apps/louvo/assets/sprites/after-dark, qui n'existe pas."""
+    candidats = []
+    for racine in ("apps/louvo", "apps"):
+        if not os.path.isdir(racine):
+            continue
+        for d, ss, ns in os.walk(racine):
+            ss[:] = [x for x in ss
+                     if x not in ("node_modules", ".svelte-kit", "dist",
+                                  "build", ".turbo", "_png_originaux")]
+            png = sum(1 for n in CARTES if n + ".png" in ns)
+            webp = sum(1 for n in CARTES if n + ".webp" in ns)
+            if png or webp:
+                candidats.append((png, webp, d))
+        if candidats:
+            break
+    if not candidats:
+        return None
+    # celui qui contient le plus de PNG a convertir
+    candidats.sort(key=lambda c: (-c[0], -c[1]))
+    return candidats[0][2]
+
+# Tailles d'affichage reelles, pour juger si les images sont surdimensionnees.
+#   AfterDarkTierPass : SYMBOL_SIZE(120) * 3.2 = 384 de large, * 4.4 = 528
+#   AfterDarkStreakDisplay : 90 x 120
+AFFICHAGE_MAX = (384, 528)
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def ko(n):
+    return "%.0f Ko" % (n / 1024.0)
+
+
+def main():
+    say("===== LES 5 CARTES AFTER DARK =====")
+    say("")
+
+    if not os.path.isdir("apps/louvo"):
+        say("  ARRET : apps/louvo introuvable.")
+        say("  Lancez depuis /workspaces/web-sdk.")
+        return False
+
+    DOSSIER = trouver_dossier()
+    if DOSSIER is None:
+        say("  ARRET : aucun dossier contenant vos cartes n'a ete trouve")
+        say("  sous apps/louvo. J'ai cherche ces noms :")
+        for n in CARTES:
+            say("      %s.png  /  %s.webp" % (n, n))
+        say("")
+        say("  Verifiez le nom exact de vos fichiers - la casse compte.")
+        return False
+    ARCHIVE = os.path.join(DOSSIER, "_png_originaux")
+
+    try:
+        from PIL import Image
+    except ImportError:
+        say("  Pillow n'est pas installe. Lancez d'abord :")
+        say("")
+        say("      pip install Pillow --break-system-packages")
+        say("")
+        say("  puis relancez ce script.")
+        return False
+
+    say("  dossier : %s" % DOSSIER)
+    say("")
+
+    presents = []
+    manquants = []
+    for nom in CARTES:
+        p = os.path.join(DOSSIER, nom + ".png")
+        (presents if os.path.isfile(p) else manquants).append(nom)
+
+    if manquants:
+        say("  PNG introuvables : %s" % ", ".join(manquants))
+        say("")
+        say("  Contenu reel du dossier :")
+        for f in sorted(os.listdir(DOSSIER)):
+            chemin = os.path.join(DOSSIER, f)
+            if os.path.isfile(chemin):
+                say("      %-28s %s" % (f, ko(os.path.getsize(chemin))))
+        if not presents:
+            say("")
+            say("  ARRET : aucune carte a convertir. RIEN MODIFIE.")
+            return False
+        say("")
+        say("  Je convertis quand meme les %d presente(s)." % len(presents))
+
+    os.makedirs(ARCHIVE, exist_ok=True)
+
+    say("")
+    say("  %-16s %-13s %10s %10s %8s"
+        % ("carte", "dimensions", "PNG", "WebP", "gain"))
+    say("  " + "-" * 62)
+
+    ok = True
+    total_avant = 0
+    total_apres = 0
+    surdimensionnees = []
+
+    for nom in presents:
+        src = os.path.join(DOSSIER, nom + ".png")
+        dst = os.path.join(DOSSIER, nom + ".webp")
+        try:
+            img = Image.open(src)
+            if img.mode not in ("RGBA", "RGB"):
+                img = img.convert("RGBA")
+            largeur, hauteur = img.size
+            img.save(dst, "WEBP", quality=92, method=6)
+            img.close()
+        except Exception as e:
+            ok = False
+            say("  %-16s ECHEC : %s" % (nom, e))
+            continue
+
+        a = os.path.getsize(src)
+        b = os.path.getsize(dst)
+        total_avant += a
+        total_apres += b
+        say("  %-16s %5d x %-5d %10s %10s %7.0f%%"
+            % (nom, largeur, hauteur, ko(a), ko(b),
+               100.0 * (a - b) / a if a else 0))
+
+        if largeur > AFFICHAGE_MAX[0] * 2 or hauteur > AFFICHAGE_MAX[1] * 2:
+            surdimensionnees.append((nom, largeur, hauteur))
+
+        shutil.move(src, os.path.join(ARCHIVE, nom + ".png"))
+
+    say("  " + "-" * 62)
+    if total_avant:
+        say("  %-16s %13s %10s %10s %7.0f%%"
+            % ("TOTAL", "", ko(total_avant), ko(total_apres),
+               100.0 * (total_avant - total_apres) / total_avant))
+
+    say("")
+    say("===== VERIFICATION =====")
+    for nom in presents:
+        dst = os.path.join(DOSSIER, nom + ".webp")
+        existe = os.path.isfile(dst)
+        if not existe:
+            ok = False
+        say("  %-40s %s" % (nom + ".webp", "OK" if existe else "*** ABSENT ***"))
+
+    a = ""
+    try:
+        with open("apps/louvo/src/game/assets.ts", encoding="utf-8") as f:
+            a = f.read()
+    except OSError:
+        pass
+    say("")
+    for nom in CARTES:
+        attendu = "after-dark/%s.webp" % nom
+        present = attendu in a
+        if not present:
+            ok = False
+        say("  %-40s %s"
+            % ("assets.ts pointe sur " + nom,
+               "OK" if present else "*** NON TROUVE ***"))
+
+    if surdimensionnees:
+        say("")
+        say("===== CES IMAGES SONT TRES GRANDES =====")
+        say("  Elles s'affichent au maximum en %d x %d (le plein ecran"
+            % AFFICHAGE_MAX)
+        say("  du passage de palier), et en 90 x 120 dans le presentoir.")
+        say("")
+        for nom, l, h in surdimensionnees:
+            vram = l * h * 4 / (1024.0 * 1024.0)
+            say("      %-16s %5d x %-5d  =  %.1f Mo de memoire video"
+                % (nom, l, h, vram))
+        say("")
+        say("  Une texture est stockee decompressee : seules les")
+        say("  DIMENSIONS comptent, pas le poids du fichier. Dites-moi")
+        say("  si vous voulez que je les redimensionne, c'est deux")
+        say("  minutes et invisible a l'ecran.")
+
+    say("")
+    say("  Les PNG d'origine sont dans %s" % ARCHIVE)
+    return ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "A REGARDER"))
+print("")
+print("FINI - envoyez rapport_cartes.txt")
+sys.exit(0 if ok else 1)

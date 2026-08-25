@@ -37,6 +37,11 @@ const ambianceMusicale = ({ finDeBonus = false }: { finDeBonus?: boolean } = {})
 // false pour l'aligner sur les autres paliers.
 const MAX_WIN_GARDE_SA_MUSIQUE = true;
 
+// Le niveau 10 de winLevelMap : alias 'max', texte MAX WIN, musique
+// bgm_maxwin, 32 secondes de presentation. C'est celui que setWin
+// aurait porte si le math en emettait un sur un tour plafonne.
+const NIVEAU_MAX_WIN: WinLevel = 10;
+
 const winLevelSoundsPlay = ({
 	winLevelData,
 	dansLeBonus = false,
@@ -412,6 +417,29 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		await eventEmitter.broadcastAsync({ type: 'uiShow' });
 		await eventEmitter.broadcastAsync({ type: 'drawerUnfold' });
 		eventEmitter.broadcast({ type: 'drawerButtonHide' });
+	},
+	// Le plafond de gain.
+	//
+	// Sur un tour plafonne, le math n'emet PAS de setWin : il emet
+	// wincap a sa place. Sans ce handler, le SDK ecrivait
+	// "Missing bookEventHandler" en console et le joueur ne voyait
+	// aucun ecran MAX WIN - sur un jeu dont l'argument est justement
+	// que 15 000x est atteignable dans les six modes.
+	//
+	// On refait donc ce que fait setWin, avec le niveau max impose :
+	// il n'y a pas de winLevel a lire dans l'evenement, le plafond
+	// EST le niveau maximum par definition.
+	wincap: async (bookEvent: BookEventOfType<'wincap'>) => {
+		const winLevelData = winLevelMap[NIVEAU_MAX_WIN];
+		eventEmitter.broadcast({ type: 'winShow' });
+		winLevelSoundsPlay({ winLevelData, dansLeBonus: stateGame.gameType === 'freegame' });
+		await eventEmitter.broadcastAsync({
+			type: 'winUpdate',
+			amount: bookEvent.amount,
+			winLevelData,
+		});
+		winLevelSoundsStop();
+		eventEmitter.broadcast({ type: 'winHide' });
 	},
 	setWin: async (bookEvent: BookEventOfType<'setWin'>, { bookEvents }: BookEventContext) => {
 		// GARDE CONTRE LES GAINS FANTOMES

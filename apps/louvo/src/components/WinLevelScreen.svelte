@@ -31,8 +31,17 @@
 	// =====================================================
 	const MAX_IMAGE_Y = -SYMBOL_SIZE * 0.5;
 	const MAX_MONTANT_Y = SYMBOL_SIZE * 2.15;
-	const MAX_MONTANT_TAILLE = SYMBOL_SIZE * 1.05;
-	const MAX_MONTANT_LARGEUR = SYMBOL_SIZE * 6.2;
+	const MAX_MONTANT_TAILLE = SYMBOL_SIZE * 0.68;
+	const MAX_MONTANT_LARGEUR = SYMBOL_SIZE * 3.4;
+
+	// Votre cadre derriere le montant du MAX WIN : le meme sprite que
+	// le panneau sous la grille et que le total de fin de bonus.
+	const MAX_CADRE = true; // <<< false pour un montant nu, comme avant
+	const MAX_CADRE_LARGEUR = SYMBOL_SIZE * 4.2; // <<< LA taille du cadre
+	const MAX_CADRE_RATIO = 1536 / 1024; // proportions de l'image, a ne pas deformer
+	// Le rose se lisait mal sur le bois fonce du cadre. 0xff2d6a pour
+	// le retrouver.
+	const MAX_MONTANT_COULEUR = 0xffffff;
 
 	// --- l'animation d'entree ---
 	const ENTREE_MS = 420; // duree du surgissement
@@ -61,6 +70,7 @@
 	const montantY = $derived(estMax ? MAX_MONTANT_Y : MONTANT_Y);
 	const montantTaille = $derived(estMax ? MAX_MONTANT_TAILLE : MONTANT_TAILLE);
 	const montantLargeur = $derived(estMax ? MAX_MONTANT_LARGEUR : MONTANT_LARGEUR);
+	const montantCouleur = $derived(estMax ? MAX_MONTANT_COULEUR : 0xff2d6a);
 
 	let echelle = $state(ECHELLE_DEPART);
 
@@ -106,6 +116,19 @@
 		height={hauteur * echelle}
 	/>
 
+	{#if estMax && MAX_CADRE}
+		<!-- Le cadre du MAX WIN. L'image du palier s'arrete au-dessus
+			du montant : sans lui, les chiffres flottent sur le decor.
+			Il se place AVANT le texte pour passer dessous. -->
+		<Sprite
+			anchor={0.5}
+			key="totalWinFrame"
+			y={MAX_MONTANT_Y}
+			width={MAX_CADRE_LARGEUR}
+			height={MAX_CADRE_LARGEUR / MAX_CADRE_RATIO}
+		/>
+	{/if}
+
 	{#if !estMax && FOND_OPACITE > 0}
 		<!-- Le fond noir derriere le montant. MAX WIN n'en a jamais eu :
 			son image occupe tout l'ecran, un rectangle par-dessus ferait
@@ -126,7 +149,7 @@
 		maxWidth={montantLargeur}
 		text={props.montant}
 		style={{
-			fontFamily: 'gold', fill: 0xff2d6a,
+			fontFamily: 'gold', fill: montantCouleur,
 			fontSize: montantTaille,
 			align: 'center',
 			fontWeight: 'bold',
