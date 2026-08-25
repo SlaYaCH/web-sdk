@@ -81,3 +81,13 @@ audit_assets.txt
 sortie.txt
 images_louvo/
 _images_originales/
+
+# fichiers de travail
+rapport*.txt
+patch*.txt
+audit_*.txt
+diag*.txt
+extrait_*.txt
+convert_*.txt
+build_log*.txt
+*.avant-lot*
