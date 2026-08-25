@@ -1,333 +1,4 @@
-<script lang="ts">
-	import { onMount } from 'svelte';
-
-	import { EnablePixiExtension } from 'components-pixi';
-	import { EnableHotkey } from 'components-shared';
-	import { MainContainer } from 'components-layout';
-	import { App, Text, REM, Container, Rectangle, Sprite } from 'pixi-svelte';
-	import { stateModal } from 'state-shared';
-
-	import { UiGameName } from 'components-ui-pixi';
-	import { stateUi } from 'state-shared';
-	import { BLACK } from 'constants-shared/colors';
-	import LouvoBottomBar from './LouvoBottomBar.svelte';
-	import BoardBackdrop from './BoardBackdrop.svelte';
-	import AfterDarkStreakDisplay from './AfterDarkStreakDisplay.svelte';
-	import WinLinesDisplay from './WinLinesDisplay.svelte';
-	import LouvoSettingsMenu from './LouvoSettingsMenu.svelte';
-	import LouvoBonusMenu from './LouvoBonusMenu.svelte';
-	import LouvoReplayBar from './LouvoReplayBar.svelte';
-	import LouvoHistoryPanel from './LouvoHistoryPanel.svelte';
-	import { GameVersion, Modals } from 'components-ui-html';
-
-	import assets from '../game/assets';
-	import { getContext } from '../game/context';
-	import EnableSound from './EnableSound.svelte';
-	import EnableGameActor from './EnableGameActor.svelte';
-	import ResumeBet from './ResumeBet.svelte';
-	import Sound from './Sound.svelte';
-	import Background from './Background.svelte';
-	import LoadingScreen from './LoadingScreen.svelte';
-import LouvoIntroScreen from './LouvoIntroScreen.svelte';
-	import BoardFrame from './BoardFrame.svelte';
-	import Board from './Board.svelte';
-	import Anticipations from './Anticipations.svelte';
-	import Win from './Win.svelte';
-	import SpecialRevealOverlay from './SpecialRevealOverlay.svelte';
-	import AfterDarkTierPass from './AfterDarkTierPass.svelte';
-	import RetriggerToast from './RetriggerToast.svelte';
-	import BonusWinCounter from './BonusWinCounter.svelte';
-	import LouvoWinPanel from './LouvoWinPanel.svelte';
-import DevRevealPanel from './DevRevealPanel.svelte';
-	import FreeSpinIntro from './FreeSpinIntro.svelte';
-	import FreeSpinCounter from './FreeSpinCounter.svelte';
-	import FreeSpinOutro from './FreeSpinOutro.svelte';
-	import Transition from './Transition.svelte';
-
-	import { texteSocial } from '../game/social';
-	const context = getContext();
-
-	// Mode replay officiel Stake : l'URL porte replay=true, Authenticate.svelte
-	// a deja pose stateUi.config.mode = 'replay' et appele /bet/replay/...
-	// Aucune vraie mise ne doit etre possible dans ce mode.
-	const isReplayMode = $derived(stateUi.config.mode === 'replay');
-
-	// Les panneaux ci-dessous sont poses en pixels de canvas bruts, sans
-	// passer par MainContainer : ils ne beneficient donc pas du scale du
-	// SDK. Sur un telephone de 375 px de large, un panneau de 980 px
-	// deborde largement. On applique le meme principe qu'ailleurs : un
-	// seul facteur d'echelle sur tout le conteneur, plafonne a 1 pour ne
-	// rien changer sur grand ecran.
-	const overlayScale = (panelWidth: number, panelHeight: number) => {
-		const canvas = context.stateLayoutDerived.canvasSizes();
-		return Math.min(
-			1,
-			(canvas.width - 24) / panelWidth,
-			(canvas.height - 24) / panelHeight,
-		);
-	};
-
-	// Le nom du jeu et le logo sont eux aussi poses en pixels de canvas
-	// bruts, hors MainContainer. Sur un petit ecran ils prennent une place
-	// enorme et chevauchent l'enseigne LOUVO. Plafonne a 1 : aucun
-	// changement au-dela de 900 px de large.
-	const hudScale = $derived(
-		Math.min(1, context.stateLayoutDerived.canvasSizes().width / 900),
-	);
-
-	onMount(() => (context.stateLayout.showLoadingScreen = true));
-
-	let bonusMenuOpen = $state(false);
-	let historyOpen = $state(false);
-	let showIntroScreen = $state(false);
-
-	context.eventEmitter.subscribeOnMount({
-		buyBonusConfirm: () => {
-			stateModal.modal = { name: 'buyBonusConfirm' };
-		},
-		bonusMenuShow: () => (bonusMenuOpen = true),
-		historyShow: () => (historyOpen = true),
-	});
-</script>
-
-<App>
-	<EnableSound />
-	<EnableHotkey />
-	<EnableGameActor />
-	<EnablePixiExtension />
-
-	{#if !context.stateLayout.showLoadingScreen}
-		<Background />
-	{/if}
-
-	{#if context.stateLayout.showLoadingScreen}
-		<LoadingScreen
-			onloaded={() => {
-				context.stateLayout.showLoadingScreen = false;
-				showIntroScreen = true;
-			}}
-		/>
-	{:else if showIntroScreen}
-		<LouvoIntroScreen onpress={() => (showIntroScreen = false)} />
-	{:else}
-		<ResumeBet />
-		<!--
-			The reason why <Sound /> is rendered after clicking the loading screen:
-			"Autoplay with sound is allowed if: The user has interacted with the domain (click, tap, etc.)."
-			Ref: https://developer.chrome.com/blog/autoplay
-		-->
-		<Sound />
-
-		<MainContainer>
-			<BoardBackdrop />
-			<Board />
-			<Anticipations />
-		</MainContainer>
-
-		<MainContainer>
-			<BoardFrame />
-				<AfterDarkStreakDisplay
-					tier2={{
-						filled:
-							context.stateGame.streakTier === 1
-								? 6 - context.stateGame.streakLikes
-								: context.stateGame.streakTier >= 2
-									? 0
-									: 6,
-						achieved: context.stateGame.streakTier >= 2,
-					}}
-					tier3={{
-						filled:
-							context.stateGame.streakTier === 2
-								? 6 - context.stateGame.streakLikes
-								: context.stateGame.streakTier >= 3
-									? 0
-									: 6,
-						achieved: context.stateGame.streakTier >= 3,
-					}}
-					tier4={{
-						filled:
-							context.stateGame.streakTier === 3
-								? 6 - context.stateGame.streakLikes
-								: context.stateGame.streakTier >= 4
-									? 0
-									: 6,
-						achieved: context.stateGame.streakTier >= 4,
-					}}
-					tier5x={{
-						filled:
-							context.stateGame.streakTier === 4
-								? 6 - context.stateGame.streakLikes
-								: context.stateGame.streakTier > 4
-									? 0
-									: 6,
-						achieved: context.stateGame.streakTier > 4,
-					}}
-				/>
-		</MainContainer>
-
-		<Container x={20} scale={hudScale}>
-			<UiGameName name="LOUVO" />
-		</Container>
-		<Container x={context.stateLayoutDerived.canvasSizes().width - 20} scale={hudScale}>
-			<Sprite key="louvoLogo" anchor={{ x: 1, y: 0 }} width={100} height={72.8} />
-		</Container>
-		<MainContainer standard alignVertical="bottom">
-			<Container
-				x={context.stateLayoutDerived.mainLayoutStandard().width * 0.5}
-				y={context.stateLayoutDerived.mainLayoutStandard().height - 10}
-			>
-				{#if isReplayMode}<LouvoReplayBar />{:else}<LouvoBottomBar />{/if}
-			</Container>
-		</MainContainer>
-
-		{#if stateUi.menuOpen}
-			<Rectangle
-				eventMode="static"
-				cursor="pointer"
-				alpha={0.5}
-				anchor={0.5}
-				backgroundColor={BLACK}
-				width={context.stateLayoutDerived.canvasSizes().width}
-				height={context.stateLayoutDerived.canvasSizes().height}
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				onpointerup={() => (stateUi.menuOpen = false)}
-			/>
-			<Container
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				scale={overlayScale(380, 650)}
-			>
-				<LouvoSettingsMenu />
-			</Container>
-		{/if}
-
-		{#if bonusMenuOpen}
-			<Rectangle
-				eventMode="static"
-				cursor="pointer"
-				alpha={0.5}
-				anchor={0.5}
-				backgroundColor={BLACK}
-				width={context.stateLayoutDerived.canvasSizes().width}
-				height={context.stateLayoutDerived.canvasSizes().height}
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				onpointerup={() => (bonusMenuOpen = false)}
-			/>
-			<Container
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				scale={overlayScale(914, 374)}
-			>
-				<LouvoBonusMenu onclose={() => (bonusMenuOpen = false)} />
-			</Container>
-		{/if}
-		{#if historyOpen}
-			<Rectangle
-				eventMode="static"
-				cursor="pointer"
-				alpha={0.5}
-				anchor={0.5}
-				backgroundColor={BLACK}
-				width={context.stateLayoutDerived.canvasSizes().width}
-				height={context.stateLayoutDerived.canvasSizes().height}
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				onpointerup={() => (historyOpen = false)}
-			/>
-			<Container
-				x={context.stateLayoutDerived.canvasSizes().width * 0.5}
-				y={context.stateLayoutDerived.canvasSizes().height * 0.5}
-				scale={overlayScale(980, 640)}
-			>
-				<LouvoHistoryPanel onclose={() => (historyOpen = false)} />
-			</Container>
-		{/if}
-		<Win />
-		<SpecialRevealOverlay />
-		<AfterDarkTierPass />
-		<RetriggerToast />
-		<MainContainer zIndex={100}>
-			<WinLinesDisplay />
-		</MainContainer>
-		<DevRevealPanel />
-		<FreeSpinIntro />
-		<!-- Les compteurs etaient limites a desktop/landscape, donc absents
-		     en portrait. Ils se posent maintenant sous la grille dans tous
-		     les modes : voir counterAnchor dans game/boardBox.ts. -->
-		<FreeSpinCounter />
-		<BonusWinCounter />
-		<!-- Le gain du tour, sous la grille, en base game seulement :
-		     voir LouvoWinPanel.svelte. -->
-		<LouvoWinPanel />
-		<FreeSpinOutro />
-		<Transition />
-
-	{/if}
-</App>
-
-<Modals>
-	{#snippet version()}
-		<GameVersion version="1.0.0" />
-	{/snippet}
-	{#snippet gameRules()}
-		{@html texteSocial(`<style>
-	.louvo-rules {
-		color: #ffffff;
-		line-height: 1.5;
-		max-height: 80vh;
-		overflow-y: auto;
-		padding-right: 12px;
-		box-sizing: border-box;
-	}
-	.louvo-rules h2 { color: #ff2d6a; margin-top: 24px; }
-	.louvo-rules h3 { color: #ff8fb3; margin-top: 16px; }
-	.louvo-paytable-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-		gap: 12px;
-		margin: 12px 0;
-	}
-	.louvo-paytable-item {
-		text-align: center;
-		font-size: 12px;
-	}
-	.louvo-paytable-item img {
-		width: 56px;
-		height: 56px;
-		object-fit: contain;
-		border-radius: 6px;
-		display: block;
-		margin: 0 auto 4px auto;
-	}
-	.louvo-paytable-item span {
-		display: block;
-	}
-	.ln-wrap {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-		gap: 10px;
-		margin: 12px 0;
-	}
-	.ln-item {
-		text-align: center;
-	}
-	.ln-label {
-		font-size: 11px;
-		color: #ff8fb3;
-		margin-bottom: 2px;
-	}
-	.ln-grid {
-		display: grid;
-		grid-template-columns: repeat(5, 8px);
-		grid-template-rows: repeat(5, 8px);
-		gap: 1px;
-		background: #000000;
-		padding: 2px;
-		margin: 0 auto;
-		width: fit-content;
+=== GAME.SVELTE 330-470 ===
 	}
 	.ln-cell {
 		width: 8px;
@@ -456,8 +127,54 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 	<p>The three-line button opens the menu. TURBO speeds up the reels and SUPER TURBO speeds them up further. STOP ON WIN halts autoplay as soon as a round pays. HISTORY lists the rounds played in this session. INFO / RULES opens this page. The two sliders set the music and sound effect volume, and either can be turned down to silence.</p>
 
 	<h2>DISCLAIMER</h2>
-	<p>All results are determined by the Remote Game Server before a round is displayed. The reel positions shown are illustrative: they present the result, they do not decide it. No event in the browser can influence the outcome of a round.</p>
 	<p>Malfunction voids all wins and plays. A consistent internet connection is required. In the event of a disconnection, reload the game to finish any uncompleted rounds. The expected return is calculated over many plays. The game display is not representative of any physical device and is for illustrative purposes only. Winnings are settled according to the amount received from the Remote Game Server and not from events within the web browser. TM and &copy; 2026 Stake Engine.</p>
-</div>`)}
+</div>`}
 	{/snippet}
 </Modals>
+
+=== BOTTOMBAR 125-140 ===
+		if (stopDisabled) return true;
+		if (!stateBetDerived.hasAutoBetCounter() && stateBet.isTurbo) return true;
+		return false;
+	});
+	const onSpinPress = () => {
+		context.eventEmitter.broadcast({ type: 'soundPressBet' });
+		if (context.stateXstateDerived.isIdle()) {
+			if (stateBetDerived.activeBetMode()?.type === 'buy') stateBet.activeBetModeKey = 'BASE';
+			context.eventEmitter.broadcast({ type: 'bet' });
+		} else if (!stopDisabled) {
+			if (stateBetDerived.hasAutoBetCounter()) stateBet.autoSpinsCounter = 0;
+			context.eventEmitter.broadcast({ type: 'stopButtonClick' });
+		}
+	};
+</script>
+
+
+=== BONUSMENU 50-60 ===
+		// L'affichage du menu est pilote par une variable locale de Game.svelte,
+		// pas par stateModal : sans ce rappel, l'ecran de selection se rouvre.
+		props.onclose?.();
+		// Les modes "achat" doivent lancer le tour tout de suite (les modes
+		// "activation" attendent que le joueur appuie sur SPIN lui-meme).
+		if (isBuyMode) {
+			context.eventEmitter.broadcast({ type: 'bet' });
+		}
+	};
+
+	// Mesures reelles sur les fenetres de confirmation (1161x1355)
+
+=== HISTORY 100-110 ===
+
+	<!-- En-tetes -->
+	<Text x={COL.time} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="TIME" style={HEAD} />
+	<Text x={COL.mode} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="MODE" style={HEAD} />
+	<Text x={COL.id} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="ROUND ID" style={HEAD} />
+	<Text x={COL.bet} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="BET" style={HEAD} />
+	<Text x={COL.win} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="WIN" style={HEAD} />
+	<Text x={COL.mult} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="MULT" style={HEAD} />
+
+	{#if rows.length === 0}
+		<Text
+
+=== INTRO ===
+32:			body: 'Land the ultimate crush: a win that can climb up to 15,000x your bet!',

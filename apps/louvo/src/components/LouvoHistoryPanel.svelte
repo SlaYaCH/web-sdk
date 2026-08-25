@@ -6,6 +6,7 @@
 	import { stateHistory, type HistoryRound } from '../game/stateHistory.svelte';
 	import { playBet } from '../game/utils';
 
+	import { motSocial } from '../game/social';
 	type Props = { onclose: () => void };
 
 	const props: Props = $props();
@@ -102,7 +103,7 @@
 	<Text x={COL.time} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="TIME" style={HEAD} />
 	<Text x={COL.mode} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="MODE" style={HEAD} />
 	<Text x={COL.id} y={TOP - 34} anchor={{ x: 0, y: 0.5 }} text="ROUND ID" style={HEAD} />
-	<Text x={COL.bet} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="BET" style={HEAD} />
+	<Text x={COL.bet} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text={motSocial('BET')} style={HEAD} />
 	<Text x={COL.win} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="WIN" style={HEAD} />
 	<Text x={COL.mult} y={TOP - 34} anchor={{ x: 1, y: 0.5 }} text="MULT" style={HEAD} />
 

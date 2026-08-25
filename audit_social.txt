@@ -1,0 +1,275 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - l'audit des mots interdits en Social Mode (LECTURE SEULE)
+#
+# ============================================================
+# LA SOURCE
+# ============================================================
+#   approval_Guideline_complet.txt, "Jurisdiction Requirements" :
+#
+#     "For games to be avaliable on stake.us, US requriements
+#      prohibit the use of certain gambling terms. This predominantly
+#      applies to game rules but also potentially extends to images
+#      and UI elments."
+#
+#   Suit une table de 30 termes interdits et de leurs remplacements.
+#   Elle est reproduite telle quelle dans ce script.
+#
+# ============================================================
+# CE QUE FAIT CE SCRIPT
+# ============================================================
+#   Il cherche ces termes UNIQUEMENT dans ce qui s'affiche a l'ecran :
+#   les chaines de caracteres et le texte HTML du panneau de regles.
+#   Il ignore le code - betAmount, stateBet, BetMode ne sont pas des
+#   mots affiches, et les compter ferait crier au loup.
+#
+#   La frontiere de mot fait le travail : "bet" ne matche pas dans
+#   "betAmount" (une lettre suit), mais matche dans "your bet".
+#
+#   Il ne corrige rien. Il compte et il localise, pour qu'on sache
+#   quelle est l'ampleur du chantier avant d'ecrire une seule ligne.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 audit_social.txt
+#
+# NE MODIFIE RIEN. AUCUN BUILD.
+# ============================================================
+import os
+import re
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+RAPPORT = "rapport_social.txt"
+report = []
+
+# La table officielle. Les expressions longues d'abord : "total bet"
+# doit etre reconnu avant "bet".
+TABLE = [
+    ("be awarded to player", "appear in player's accounts"),
+    ("place your bets", "come and play / join in the game"),
+    ("at the cost of", "for"),
+    ("win feature", "play feature"),
+    ("bonus buy", "bonus / feature"),
+    ("buy bonus", "get bonus"),
+    ("total bet", "total play"),
+    ("paid out", "won"),
+    ("pays out", "won"),
+    ("pay out", "win / won"),
+    ("cost of", "can be played for"),
+    ("purchase", "play"),
+    ("betting", "playing"),
+    ("withdraw", "redeem"),
+    ("currency", "token"),
+    ("deposit", "get coins"),
+    ("gamble", "play"),
+    ("bought", "instantly triggered"),
+    ("credit", "balance"),
+    ("payer", "winner"),
+    ("rebet", "respin"),
+    ("wager", "play"),
+    ("money", "coins"),
+    ("bets", "plays"),
+    ("cash", "coins"),
+    ("fund", "balance"),
+    ("paid", "won"),
+    ("pays", "wins"),
+    ("buy", "play"),
+    ("bet", "play"),
+    ("pay", "win"),
+]
+
+# "stake" est dans la table (-> "play amount") mais le disclaimer
+# officiel de Stake contient lui-meme "Stake Engine". C'est une marque,
+# pas un terme de pari : on le signale a part, sans le compter comme
+# une faute.
+A_PART = ["stake"]
+
+
+def flush():
+    try:
+        with open(RAPPORT, "w") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def say(line=""):
+    report.append(line)
+    print(line)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    flush()
+
+
+def lire(p):
+    try:
+        with open(p, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def est_du_code(ligne):
+    """Ecarte les lignes qui sont manifestement du code et non du texte
+    affiche. On garde tout ce qui ressemble a du HTML ou a une chaine."""
+    nue = ligne.strip()
+    if nue.startswith(("//", "*", "/*", "<!--")):
+        return True
+    if nue.startswith(("import ", "export ", "const ", "let ", "type ")):
+        # sauf si la ligne porte quand meme un libelle entre guillemets
+        if not re.search(r"""["'][A-Z][A-Z ]{2,}["']""", nue):
+            return True
+    return False
+
+
+def zones_affichees(txt):
+    """Renvoie [(no_ligne, texte)] des lignes susceptibles d'etre vues
+    par un joueur : texte HTML, ou ligne contenant une chaine."""
+    out = []
+    for i, ligne in enumerate(txt.split("\n"), 1):
+        if est_du_code(ligne):
+            continue
+        a_du_html = bool(re.search(r"<(p|li|h[1-6]|span|strong|b|em)\b", ligne)
+                         or re.search(r">[^<>{}]{4,}<", ligne))
+        a_une_chaine = bool(re.search(r"""["'][^"']{3,}["']""", ligne))
+        if a_du_html or a_une_chaine:
+            out.append((i, ligne))
+    return out
+
+
+def fichiers():
+    out = []
+    for d, ss, ns in os.walk("apps/louvo/src"):
+        ss[:] = [x for x in ss if x not in ("node_modules", ".svelte-kit")]
+        for n in sorted(ns):
+            if n.endswith((".svelte", ".ts")):
+                out.append(os.path.join(d, n))
+    return out
+
+
+def main():
+    say("===== LES MOTS INTERDITS EN SOCIAL MODE =====")
+    say("")
+    say("  Source : approval_Guideline_complet.txt, Jurisdiction")
+    say("  Requirements, table des Restricted Phrases.")
+    say("")
+    say("  Seul le texte AFFICHE est analyse. Le code est ignore :")
+    say("  betAmount, stateBet et BetMode ne sont pas des mots vus")
+    say("  par un joueur.")
+
+    if not os.path.isdir("apps/louvo/src"):
+        say("")
+        say("  apps/louvo/src introuvable - lancez depuis /workspaces/web-sdk")
+        return False
+
+    total = 0
+    par_terme = {}
+    par_fichier = {}
+
+    for chemin in fichiers():
+        txt = lire(chemin)
+        if txt is None:
+            continue
+        court = chemin.replace("apps/louvo/src/", "louvo/")
+        for no, ligne in zones_affichees(txt):
+            deja = []
+            for terme, remplacement in TABLE:
+                if any(terme in d for d in deja):
+                    continue
+                motif = r"(?<![A-Za-z0-9_])" + re.escape(terme) \
+                        + r"(?![A-Za-z0-9_])"
+                if re.search(motif, ligne, re.IGNORECASE):
+                    deja.append(terme)
+                    total += 1
+                    par_terme.setdefault(terme, []).append(
+                        (court, no, remplacement))
+                    par_fichier.setdefault(court, 0)
+                    par_fichier[court] += 1
+
+    say("")
+    say("=" * 66)
+    say("  %d occurrence(s) au total" % total)
+    say("=" * 66)
+
+    if par_fichier:
+        say("")
+        say("  --- PAR FICHIER ---")
+        for f, n in sorted(par_fichier.items(), key=lambda x: -x[1]):
+            say("      %-46s %3d" % (f, n))
+
+    if par_terme:
+        say("")
+        say("  --- PAR TERME ---")
+        for terme, remplacement in TABLE:
+            hits = par_terme.get(terme)
+            if not hits:
+                continue
+            say("")
+            say("      \"%s\"  ->  \"%s\"   (%d)"
+                % (terme, remplacement, len(hits)))
+            for f, no, _ in hits[:12]:
+                say("          %s:%d" % (f, no))
+            if len(hits) > 12:
+                say("          ... et %d autre(s)" % (len(hits) - 12))
+
+    # --- le cas "stake" ---
+    say("")
+    say("  --- LE CAS PARTICULIER DE \"stake\" ---")
+    say("      La table dit stake -> play amount. Mais le disclaimer")
+    say("      officiel de Stake contient lui-meme \"Stake Engine\".")
+    say("      C'est une marque, pas un terme de pari.")
+    say("")
+    n_stake = 0
+    for chemin in fichiers():
+        txt = lire(chemin) or ""
+        court = chemin.replace("apps/louvo/src/", "louvo/")
+        for no, ligne in zones_affichees(txt):
+            if re.search(r"(?<![A-Za-z0-9_])stake(?![A-Za-z0-9_])",
+                         ligne, re.IGNORECASE):
+                n_stake += 1
+                if n_stake <= 10:
+                    say("          %s:%d" % (court, no))
+                    say("              %s" % ligne.strip()[:100])
+    if n_stake == 0:
+        say("          aucune occurrence affichee.")
+    elif n_stake > 10:
+        say("          ... et %d autre(s)" % (n_stake - 10))
+
+    say("")
+    say("=" * 66)
+    say("  CE QU'IL FAUT EN FAIRE")
+    say("=" * 66)
+    say("")
+    if total == 0:
+        say("  Aucun terme interdit dans le texte affiche. Le seul")
+        say("  chantier etait le bandeau de replay (lot 114).")
+    else:
+        say("  Chaque occurrence n'est pas forcement a corriger : le")
+        say("  contexte compte, et certains mots sont anglais courants.")
+        say("  Envoyez-moi ce rapport, je trie et je vous fais un lot")
+        say("  qui bascule les textes UNIQUEMENT quand social=true -")
+        say("  vos joueurs Stake.com garderont le texte actuel.")
+    say("")
+    say("  La doc recommande d'ailleurs cette approche : un fichier de")
+    say("  langue prefixe sweeps_<lang>, pilote par social=true/false.")
+    return True
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+print("")
+print("FINI - envoyez rapport_social.txt")
+sys.exit(0 if ok else 1)

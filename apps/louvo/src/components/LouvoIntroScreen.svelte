@@ -5,6 +5,7 @@
 	import { getContext } from '../game/context';
 	import PressToContinue from './PressToContinue.svelte';
 
+	import { motSocial } from '../game/social';
 	type Props = {
 		onpress: () => void;
 	};
@@ -29,7 +30,7 @@
 		},
 		{
 			title: 'MAXIMUM WIN',
-			body: 'Land the ultimate crush: a win that can climb up to 15,000x your bet!',
+			body: motSocial('Land the ultimate crush: a win that can climb up to 15,000x your bet!'),
 		},
 	];
 

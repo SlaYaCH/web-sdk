@@ -8,6 +8,18 @@
 			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
 		/>
 		%sveltekit.head%
+	<style>
+		/* Stake, Submission Checklist : "Double tap to zoom is disabled on
+		   mobile". La balise viewport ci-dessus ne suffit pas - Safari iOS
+		   ignore user-scalable=no depuis iOS 10. touch-action, lui, est
+		   honore : il supprime le double-tap zoom et le delai de 300 ms,
+		   sans toucher au defilement ni au pincement pour zoomer. */
+		html,
+		body,
+		canvas {
+			touch-action: manipulation;
+		}
+	</style>
 	</head>
 	<body style="margin: 0; padding: 0; overflow: hidden; background-color: black">
 		<div>%sveltekit.body%</div>

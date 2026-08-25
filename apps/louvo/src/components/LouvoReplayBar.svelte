@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Container, Rectangle, Text } from 'pixi-svelte';
-	import { stateBet, stateUi } from 'state-shared';
+	import { stateBet, stateUi, stateUrlDerived } from 'state-shared';
 	import { API_AMOUNT_MULTIPLIER } from 'constants-shared/bet';
 	import { numberToCurrencyString } from 'utils-shared/amount';
 
@@ -78,10 +78,29 @@
 	const effPayout = $derived(stateReplay.payout ?? payout);
 	const effMultiplier = $derived(stateReplay.payoutMultiplier ?? payoutMultiplier);
 
+	// Stake.US, Social Mode : "Replay window does not contain restricted
+	// words". Un casino social ne fait pas parier, il fait jouer. Le mot
+	// ne change QUE si l'URL de lancement porte social=true - sur
+	// Stake.com le bandeau garde BET, que les joueurs comprennent.
+	const MOT_MISE = stateUrlDerived.social() ? 'PLAY' : 'BET';
 	const betText = $derived(numberToCurrencyString(stateBet.betAmount));
-	const winText = $derived(
-		effPayout === null ? '-' : numberToCurrencyString(effPayout / API_AMOUNT_MULTIPLIER),
-	);
+	// Le round renvoye par /bet/replay porte payoutMultiplier mais pas
+	// toujours le montant : sur l'event 31, le bandeau affichait
+	// MULTIPLIER 6.00x et un WIN vide.
+	//
+	// Le multiplicateur EST le gain divise par la mise. On reconstitue
+	// donc le gain a partir de lui, ce qui est exact et ne depend
+	// d'aucun nom de champ dans la reponse du RGS. Si payout est
+	// present il reste prioritaire.
+	//
+	// Un tour perdant affiche desormais 0 et non un tiret : un tiret
+	// laisse croire a une donnee manquante, zero est une information.
+	const winText = $derived.by(() => {
+		if (effPayout !== null) return numberToCurrencyString(effPayout / API_AMOUNT_MULTIPLIER);
+		if (effMultiplier !== null && stateBet.betAmount > 0)
+			return numberToCurrencyString(stateBet.betAmount * effMultiplier);
+		return '-';
+	});
 	const multiplierText = $derived.by(() => {
 		if (effMultiplier !== null) return `${effMultiplier.toFixed(2)}x`;
 		if (effPayout !== null && stateBet.betAmount > 0)
@@ -148,7 +167,7 @@
 		</Container>
 
 		<!-- BET -->
-		<Text x={COL_BET} y={-18} anchor={0.5} text="BET" style={LABEL} />
+		<Text x={COL_BET} y={-18} anchor={0.5} text={MOT_MISE} style={LABEL} />
 		<Text x={COL_BET} y={20} anchor={0.5} text={betText} style={VALUE} />
 
 		<!-- WIN -->
