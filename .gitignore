@@ -91,3 +91,4 @@ extrait_*.txt
 convert_*.txt
 build_log*.txt
 *.avant-lot*
+pack-v6/

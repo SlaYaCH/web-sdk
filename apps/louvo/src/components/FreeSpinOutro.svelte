@@ -36,6 +36,13 @@
 	const CADRE_LARGEUR = SYMBOL_SIZE * 4.6; // <<< LA taille du cadre
 	const CADRE_RATIO = 1024 / 1536; // proportions de l'image, a ne pas toucher
 	const CADRE_Y = 0; // hauteur du cadre sur l'ecran
+	// Le cadre et le montant etaient tous deux a CADRE_Y : c'est donc
+	// la TOILE de l'image qui se centrait sur le montant, pas
+	// l'INTERIEUR du cadre. Or le panneau de bois n'est pas au milieu
+	// de la toile (mesure : 3,6 % plus haut). D'ou 70 px de vide
+	// au-dessus des chiffres et 32 en dessous.
+	const CADRE_DECALAGE = 0.0361; // <<< monter (negatif) ou descendre
+	const cadreHauteur = CADRE_LARGEUR * CADRE_RATIO;
 	const TEXTE_Y = 0; // hauteur du montant dans le cadre
 	const TEXTE_TAILLE = SYMBOL_SIZE * 0.62; // taille des chiffres
 	const TEXTE_LARGEUR = SYMBOL_SIZE * 2.9; // au-dela, le texte retrecit
@@ -76,9 +83,9 @@
 						<Sprite
 							anchor={0.5}
 							key="totalWinFrame"
-							y={CADRE_Y}
+							y={CADRE_Y + CADRE_DECALAGE * cadreHauteur}
 							width={CADRE_LARGEUR}
-							height={CADRE_LARGEUR * CADRE_RATIO}
+							height={cadreHauteur}
 						/>
 						<ResponsiveBitmapText
 							anchor={0.5}

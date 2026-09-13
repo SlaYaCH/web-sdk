@@ -29,8 +29,14 @@
 		}
 	});
 
-	const cardWidth = SYMBOL_SIZE * 3.2;
-	const cardHeight = SYMBOL_SIZE * 4.4;
+	// Taille des cartes de palier. Elles faisaient 3,2 x 4,4
+	// symboles, soit plus haut que la grille entiere : elles la
+	// recouvraient. Ce seul chiffre multiplie largeur ET hauteur,
+	// donc les proportions des images ne changent pas, et
+	// l'ecartement des deux cartes suit tout seul.
+	const ECHELLE_CARTES = 0.6; // <<< LE seul chiffre a regler
+	const cardWidth = (SYMBOL_SIZE * 3.2) * ECHELLE_CARTES;
+	const cardHeight = (SYMBOL_SIZE * 4.4) * ECHELLE_CARTES;
 
 	// La carte "+3 tours" n'accompagne que les trois premiers paliers.
 	// Le 4e n'accorde pas de tours supplementaires : il ne montre que

@@ -26,6 +26,22 @@
 	const FOND_HAUTEUR = SYMBOL_SIZE * 1.0;
 	const FOND_OPACITE = 0.6; // 0 = pas de fond noir du tout
 
+	// VOTRE cadre derriere le montant des quatre premiers paliers,
+	// comme celui du MAX WIN juste en dessous. Le rectangle noir
+	// reste disponible : CADRE_AUTRES = false le fait revenir.
+	const CADRE_AUTRES = true; // <<< false pour retrouver le fond noir
+	const CADRE_AUTRES_LARGEUR = SYMBOL_SIZE * 3.8; // <<< LA taille du cadre
+	// Rattrapage vertical : recentre le DESSIN sur le montant, et
+	// non le sprite - l'image porte du vide transparent en hauteur.
+	const CADRE_AUTRES_DECALAGE = 0.0361; // <<< monter (negatif) ou descendre
+	// Les proportions de l'image, redeclarees ICI plutot que reprises
+	// de MAX_CADRE_RATIO : celui-la est declare PLUS BAS dans ce
+	// fichier, et une constante ne peut pas etre lue avant sa
+	// declaration. C'est ce qui faisait planter toute la presentation
+	// des gains ('Cannot access ... before initialization').
+	const CADRE_AUTRES_RATIO = 1536 / 1024;
+	const cadreAutresHauteur = CADRE_AUTRES_LARGEUR / CADRE_AUTRES_RATIO;
+
 	// =====================================================
 	//  MAX WIN  -  n'a jamais utilise le spine, ne bouge pas
 	// =====================================================
@@ -129,10 +145,18 @@
 		/>
 	{/if}
 
-	{#if !estMax && FOND_OPACITE > 0}
-		<!-- Le fond noir derriere le montant. MAX WIN n'en a jamais eu :
-			son image occupe tout l'ecran, un rectangle par-dessus ferait
-			une tache. -->
+	{#if !estMax && CADRE_AUTRES}
+		<!-- VOTRE cadre derriere le montant, comme au MAX WIN.
+			Il se place AVANT le texte pour passer dessous. -->
+		<Sprite
+			anchor={0.5}
+			key="totalWinFrame"
+			y={MONTANT_Y + CADRE_AUTRES_DECALAGE * cadreAutresHauteur}
+			width={CADRE_AUTRES_LARGEUR}
+			height={cadreAutresHauteur}
+		/>
+	{:else if !estMax && FOND_OPACITE > 0}
+		<!-- L'ancien fond noir, garde pour pouvoir y revenir. -->
 		<Rectangle
 			anchor={0.5}
 			y={MONTANT_Y}

@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-	import { Container, Rectangle } from 'pixi-svelte';
+	import { Container, Rectangle, Sprite } from 'pixi-svelte';
 	import { FadeContainer, WinCountUpProvider, ResponsiveBitmapText } from 'components-pixi';
 	import { waitForResolve, waitForTimeout } from 'utils-shared/wait';
 	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
@@ -23,6 +23,14 @@
 	import { stateBet } from 'state-shared';
 
 	const context = getContext();
+
+	// VOTRE cadre a la place du fond noir du montant, sous BIG WIN.
+	const CADRE_PETIT = true; // <<< false pour revenir au fond noir
+	const CADRE_PETIT_LARGEUR = SYMBOL_SIZE * 2.6; // <<< LA taille du cadre
+	const CADRE_PETIT_RATIO = 1536 / 1024; // proportions de l'image
+	// Rattrapage vertical : recentre le DESSIN sur le montant.
+	const CADRE_PETIT_DECALAGE = 0.0361; // <<< monter (negatif) ou descendre
+	const cadrePetitHauteur = CADRE_PETIT_LARGEUR / CADRE_PETIT_RATIO;
 
 	let show = $state(false);
 	let amount = $state(0);
@@ -90,13 +98,23 @@
 								montant={bookEventAmountToCurrencyString(countUpAmount)}
 							/>
 						{:else}
-							<Rectangle
-								anchor={0.5}
-								width={SYMBOL_SIZE * 2.6}
-								height={SYMBOL_SIZE * 0.8}
-								backgroundColor={0x000000}
-								alpha={0.78}
-							/>
+							{#if CADRE_PETIT}
+								<Sprite
+									anchor={0.5}
+									key="totalWinFrame"
+									y={CADRE_PETIT_DECALAGE * cadrePetitHauteur}
+									width={CADRE_PETIT_LARGEUR}
+									height={cadrePetitHauteur}
+								/>
+							{:else}
+								<Rectangle
+									anchor={0.5}
+									width={SYMBOL_SIZE * 2.6}
+									height={SYMBOL_SIZE * 0.8}
+									backgroundColor={0x000000}
+									alpha={0.78}
+								/>
+							{/if}
 							<ResponsiveBitmapText
 								anchor={0.5}
 								maxWidth={context.stateLayoutDerived.canvasSizes().width /

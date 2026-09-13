@@ -5,6 +5,10 @@
 	import { getContext } from '../game/context';
 	type Props = {
 		onpress: () => void;
+		// Facultatif, en pixels, vers le bas. A zero par defaut :
+		// ce composant sert a CINQ ecrans, et il est bien place
+		// sur les quatre autres.
+		decalageY?: number;
 	};
 	const props: Props = $props();
 	const context = getContext();
@@ -13,7 +17,7 @@
 	<Text
 		anchor={{ x: 0.5, y: 1 }}
 		x={context.stateLayoutDerived.mainLayout().width * 0.5}
-		y={context.stateLayoutDerived.mainLayout().height - 40}
+		y={context.stateLayoutDerived.mainLayout().height - 40 + (props.decalageY ?? 0)}
 		text="TAP TO CONTINUE"
 		style={{
 			fontFamily: 'proxima-nova',

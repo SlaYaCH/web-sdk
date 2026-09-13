@@ -35,6 +35,10 @@
 	const TEXTE_TAILLE = SYMBOL_SIZE * 0.26;
 	const TEXTE_Y = 0; // le montant dans le cadre
 	const SORTIE_MS = 320; // duree du fondu de disparition
+	// Meme defaut de centrage qu'ailleurs : l'INTERIEUR du cadre
+	// n'est pas au milieu de la toile de l'image. Ce chiffre le
+	// recale sur le montant.
+	const CADRE_DECALAGE = 0.0361; // <<< monter (negatif) ou descendre
 
 	const largeur = HAUTEUR * RATIO;
 	const ancre = $derived(counterAnchor(context.stateGame.tier));
@@ -101,7 +105,13 @@
 			y={ancre.y + HAUTEUR * 0.5 + DECALAGE_Y}
 			alpha={opacite}
 		>
-			<Sprite anchor={0.5} key="totalWinFrame" width={largeur} height={HAUTEUR} />
+			<Sprite
+				anchor={0.5}
+				y={HAUTEUR * CADRE_DECALAGE}
+				key="totalWinFrame"
+				width={largeur}
+				height={HAUTEUR}
+			/>
 			<BitmapText
 				anchor={{ x: 0.5, y: 0.5 }}
 				y={TEXTE_Y}

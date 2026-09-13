@@ -130,6 +130,13 @@
 							context.stateGame.board[pos.reelIndex]?.reelState?.symbols[pos.rowIndex + 1];
 						if (reelSymbol) {
 							reelSymbol.rawSymbol = { name: 'W', wild: true };
+							// Un symbole choisit son apparence avec rawSymbol ET
+							// symbolState. Ici les rouleaux sont arretes depuis
+							// longtemps : la case est en 'static', donc le WILD
+							// s'afficherait en image fixe. On repasse en 'land'
+							// pour qu'il joue son animation une fois - ReelSymbol
+							// remettra 'static' tout seul a la fin.
+							reelSymbol.symbolState = 'land';
 						}
 					}
 					context.eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_wild_explode', forcePlay: true });
@@ -143,17 +150,43 @@
 			requestAnimationFrame(step);
 		});
 
-	// Le book (reveal) contient deja les W sur les cases ciblees : des que le
-	// rouleau d'une case s'arrete, on re-affiche un symbole normal (L4) - la
-	// vraie transformation en WILD se fait uniquement a l'impact du coeur.
+	// Le book (reveal) contient deja les W sur les cases ciblees : tant
+	// que le coeur ne les a pas touchees, on masque ce W par un symbole
+	// ordinaire - la vraie transformation se fait a l'impact du coeur.
+	//
+	// CE MASQUE ETAIT FIGE SUR 'L4'. Resultat en jeu : les cases
+	// converties par un SUPER LIKE etaient TOUJOURS des coeurs avant
+	// conversion, a tous les tours. Le Math SDK n'y etait pour rien :
+	// c'est le masque qui imposait le coeur.
+	//
+	// On tire donc au hasard parmi les symboles de base (jamais W, M, K
+	// ni S), et UNE SEULE FOIS par case : maskLandedWilds est rappele
+	// toutes les 16 ms, un tirage a chaque passage ferait clignoter la
+	// grille.
+	const SYMBOLES_MASQUE = [
+		'L1',
+		'L2',
+		'L3',
+		'L4',
+		'H1',
+		'H2',
+		'H3',
+		'H4',
+		'H5',
+		'H6',
+	] as const;
+	const masques = positions.map(
+		() => SYMBOLES_MASQUE[Math.floor(Math.random() * SYMBOLES_MASQUE.length)],
+	);
+
 	const maskLandedWilds = () => {
-		for (const pos of positions) {
+		positions.forEach((pos, index) => {
 			const reel = context.stateGame.board[pos.reelIndex];
-			const reelSymbol = reel.reelState.symbols[pos.rowIndex + 1];
+			const reelSymbol = reel?.reelState?.symbols[pos.rowIndex + 1];
 			if (reelSymbol?.rawSymbol?.name === 'W') {
-				reelSymbol.rawSymbol = { name: 'L4' };
+				reelSymbol.rawSymbol = { name: masques[index] };
 			}
-		}
+		});
 	};
 
 	onMount(() => {

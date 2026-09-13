@@ -28,11 +28,36 @@
 	// la boite de cadre. Voir counterAnchor dans boardBox.ts.
 	const ancre = $derived(counterAnchor(context.stateGame.tier));
 	const position = $derived({
-		x: ancre.centerX - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.0,
+		// Ecartement des deux compteurs. Il suit la largeur du
+		// cadre : plus large, il faut les eloigner pour qu'ils
+		// ne se touchent pas au centre.
+		x: ancre.centerX - panelSizes.width * 0.5 - SYMBOL_SIZE * 1.25,
 		y: ancre.y,
 	});
 
 	const fontSize = SYMBOL_SIZE * 0.21;
+
+	// --- VOTRE cadre a la place du caisson noir ---
+	// total_win_frame.webp fait 1536x1024, soit un rapport de 1,5.
+	// Le compteur, lui, fait 2,5 fois plus large que haut. On garde
+	// donc la LARGEUR du compteur et on laisse la hauteur suivre le
+	// rapport de l'image : le cadre grandit de part et d'autre,
+	// centre, sans pousser la barre du bas. Rien n'est deforme.
+	const CADRE = true; // <<< false pour revenir au caisson noir
+	const CADRE_RATIO = 1536 / 1024; // proportions de l'image, a ne pas deformer
+	// Le dessin n'occupe qu'environ la moitie de la hauteur du
+	// sprite : a facteur 1, le cadre VISIBLE faisait 184 x 59,
+	// soit moins haut que l'ancien caisson noir (184 x 73). D'ou
+	// le texte a l'etroit. A 1.25 il fait 230 x 74.
+	const CADRE_LARGEUR_FACTEUR = 1.25; // <<< elargir ou retrecir le cadre
+	// Rattrapage vertical : recentre le DESSIN sur le texte,
+	// et non le sprite. Mesure sur l'image elle-meme.
+	const CADRE_DECALAGE_FRACTION = 0.0361; // <<< monter (negatif) ou descendre
+	const CADRE_ETIRE = false; // <<< true = hauteur d'origine, image etiree
+	const cadreLargeur = $derived(panelSizes.width * CADRE_LARGEUR_FACTEUR);
+	const cadreHauteur = $derived(
+		CADRE_ETIRE ? panelSizes.height : cadreLargeur / CADRE_RATIO,
+	);
 
 	let show = $state(false);
 	let current = $state(0);
@@ -58,7 +83,18 @@
 
 <MainContainer>
 	<FadeContainer {show} {...position} {scale}>
-		<Rectangle {...panelSizes} backgroundColor={0x000000} backgroundAlpha={0.78} />
+		{#if CADRE}
+			<Sprite
+				anchor={0.5}
+				x={panelSizes.width * 0.5}
+				y={panelSizes.height * 0.5 + CADRE_DECALAGE_FRACTION * cadreHauteur}
+				key="totalWinFrame"
+				width={cadreLargeur}
+				height={cadreHauteur}
+			/>
+		{:else}
+			<Rectangle {...panelSizes} backgroundColor={0x000000} backgroundAlpha={0.78} />
+		{/if}
 		<Container
 			x={panelSizes.width * 0.5}
 			y={panelSizes.height * 0.48}

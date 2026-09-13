@@ -23,7 +23,7 @@
 	// 2% plus grand en After Dark (cadre plus grand que la base)
 	const AFTER_DARK_SIZE_SCALE = 1.02;
 	// Le symbole DATE (scatter S) est trop grand par rapport aux autres : -20 %.
-	const DATE_SIZE_SCALE = 0.8;
+	const DATE_SIZE_SCALE = 1; // pack V6 : le DATE fait 232x182 comme les autres, plus de -20 %
 	const sizeScale = $derived(
 		(stateGame.tier === 'after_dark' ? AFTER_DARK_SIZE_SCALE : 1) *
 			(props.symbolInfo.assetKey === 'S' ? DATE_SIZE_SCALE : 1),

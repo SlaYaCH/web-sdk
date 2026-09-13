@@ -48,6 +48,18 @@ export default {
 		src: new URL('../../assets/sprites/portraits/h6_coca_cherry.webp', import.meta.url).href,
 	},
 
+	// --- Pack V6 : les atlas d'animation des portraits ---
+	// portraits.json porte h1,h2,h4,h5,h6 (6 poses chacun),
+	// shanna.json porte h3 (8 poses). Les .webp sont a cote.
+	portraitsSheet: {
+		type: 'sprites',
+		src: new URL('../../assets/sprites/portraits/portraits.json', import.meta.url).href,
+	},
+	shannaSheet: {
+		type: 'sprites',
+		src: new URL('../../assets/sprites/portraits/shanna.json', import.meta.url).href,
+	},
+
 	L1: {
 		type: 'sprite',
 		src: new URL('../../assets/sprites/basic-symbols/l1_verifie.webp', import.meta.url).href,

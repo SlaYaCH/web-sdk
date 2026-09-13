@@ -109,32 +109,49 @@ const l2Static = { type: 'sprite', assetKey: 'L2', sizeRatios: baseSymbolSizeRat
 const l3Static = { type: 'sprite', assetKey: 'L3', sizeRatios: baseSymbolSizeRatios };
 const l4Static = { type: 'sprite', assetKey: 'L4', sizeRatios: baseSymbolSizeRatios };
 
-const wStatic = { type: 'sprite', assetKey: 'W', sizeRatios: wildSizeRatios };
+const wStatic = { type: 'sprite', assetKey: 'W', sizeRatios: baseSymbolSizeRatios };
 const mStatic = { type: 'sprite', assetKey: 'M', sizeRatios: wideSizeRatios };
-const sStatic = { type: 'sprite', assetKey: 'S', sizeRatios: wideSizeRatios };
+const sStatic = { type: 'sprite', assetKey: 'S', sizeRatios: baseSymbolSizeRatios };
 const kStatic = { type: 'sprite', assetKey: 'K', sizeRatios: tallSizeRatios };
+
+// --- Pack V6 : les variantes animees ---
+// Meme cle d'image, meme proportions : seul `type` change.
+// La passerelle SymbolPack lit `pack` pour savoir quelle
+// animation fabriquer.
+const h1Anim = { type: 'pack', pack: 'h1', assetKey: 'H1', sizeRatios: portraitSizeRatios };
+const h2Anim = { type: 'pack', pack: 'h2', assetKey: 'H2', sizeRatios: portraitSizeRatios };
+const h3Anim = { type: 'pack', pack: 'h3', assetKey: 'H3', sizeRatios: portraitSizeRatios };
+const h4Anim = { type: 'pack', pack: 'h4', assetKey: 'H4', sizeRatios: portraitSizeRatios };
+const h5Anim = { type: 'pack', pack: 'h5', assetKey: 'H5', sizeRatios: portraitSizeRatios };
+const h6Anim = { type: 'pack', pack: 'h6', assetKey: 'H6', sizeRatios: portraitSizeRatios };
+const l1Anim = { type: 'pack', pack: 'verified', assetKey: 'L1', sizeRatios: baseSymbolSizeRatios };
+const l2Anim = { type: 'pack', pack: 'message', assetKey: 'L2', sizeRatios: baseSymbolSizeRatios };
+const l3Anim = { type: 'pack', pack: 'flame', assetKey: 'L3', sizeRatios: baseSymbolSizeRatios };
+const l4Anim = { type: 'pack', pack: 'heart', assetKey: 'L4', sizeRatios: baseSymbolSizeRatios };
+const wAnim = { type: 'pack', pack: 'wild', assetKey: 'W', sizeRatios: baseSymbolSizeRatios };
+const sAnim = { type: 'pack', pack: 'date', assetKey: 'S', sizeRatios: baseSymbolSizeRatios };
 
 // Premier jet : chaque état renvoie vers le même sprite statique, y compris
 // `win`. À terme, `win` gagnerait à avoir un traitement distinct (léger
 // spritesheet ou tween scale/glow) - cf. discussion sur le niveau
 // d'animation à prévoir.
 export const SYMBOL_INFO_MAP = {
-	H1: { static: h1Static, spin: h1Static, land: h1Static, postWinStatic: h1Static, win: h1Static },
-	H2: { static: h2Static, spin: h2Static, land: h2Static, postWinStatic: h2Static, win: h2Static },
-	H3: { static: h3Static, spin: h3Static, land: h3Static, postWinStatic: h3Static, win: h3Static },
-	H4: { static: h4Static, spin: h4Static, land: h4Static, postWinStatic: h4Static, win: h4Static },
-	H5: { static: h5Static, spin: h5Static, land: h5Static, postWinStatic: h5Static, win: h5Static },
-	H6: { static: h6Static, spin: h6Static, land: h6Static, postWinStatic: h6Static, win: h6Static },
+	H1: { static: h1Static, spin: h1Static, land: h1Anim, postWinStatic: h1Static, win: h1Anim },
+	H2: { static: h2Static, spin: h2Static, land: h2Anim, postWinStatic: h2Static, win: h2Anim },
+	H3: { static: h3Static, spin: h3Static, land: h3Anim, postWinStatic: h3Static, win: h3Anim },
+	H4: { static: h4Static, spin: h4Static, land: h4Anim, postWinStatic: h4Static, win: h4Anim },
+	H5: { static: h5Static, spin: h5Static, land: h5Anim, postWinStatic: h5Static, win: h5Anim },
+	H6: { static: h6Static, spin: h6Static, land: h6Anim, postWinStatic: h6Static, win: h6Anim },
 
-	L1: { static: l1Static, spin: l1Static, land: l1Static, postWinStatic: l1Static, win: l1Static },
-	L2: { static: l2Static, spin: l2Static, land: l2Static, postWinStatic: l2Static, win: l2Static },
-	L3: { static: l3Static, spin: l3Static, land: l3Static, postWinStatic: l3Static, win: l3Static },
-	L4: { static: l4Static, spin: l4Static, land: l4Static, postWinStatic: l4Static, win: l4Static },
+	L1: { static: l1Static, spin: l1Static, land: l1Anim, postWinStatic: l1Static, win: l1Anim },
+	L2: { static: l2Static, spin: l2Static, land: l2Anim, postWinStatic: l2Static, win: l2Anim },
+	L3: { static: l3Static, spin: l3Static, land: l3Anim, postWinStatic: l3Static, win: l3Anim },
+	L4: { static: l4Static, spin: l4Static, land: l4Anim, postWinStatic: l4Static, win: l4Anim },
 
-	W: { static: wStatic, spin: wStatic, land: wStatic, postWinStatic: wStatic, win: wStatic },
+	W: { static: wStatic, spin: wStatic, land: wAnim, postWinStatic: wStatic, win: wAnim },
 	M: { static: mStatic, spin: mStatic, land: mStatic, postWinStatic: mStatic, win: mStatic },
 	K: { static: kStatic, spin: kStatic, land: kStatic, postWinStatic: kStatic, win: kStatic },
-	S: { static: sStatic, spin: sStatic, land: sStatic, postWinStatic: sStatic, win: sStatic },
+	S: { static: sStatic, spin: sStatic, land: sAnim, postWinStatic: sStatic, win: sAnim },
 } as const;
 
 export const SCATTER_LAND_SOUND_MAP = {

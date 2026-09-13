@@ -1,0 +1,175 @@
+{
+  "frames": {
+    "shanna-00": {
+      "frame": {
+        "x": 2,
+        "y": 2,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-01": {
+      "frame": {
+        "x": 238,
+        "y": 2,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-02": {
+      "frame": {
+        "x": 474,
+        "y": 2,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-03": {
+      "frame": {
+        "x": 710,
+        "y": 2,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-04": {
+      "frame": {
+        "x": 2,
+        "y": 188,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-05": {
+      "frame": {
+        "x": 238,
+        "y": 188,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-06": {
+      "frame": {
+        "x": 474,
+        "y": 188,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    },
+    "shanna-07": {
+      "frame": {
+        "x": 710,
+        "y": 188,
+        "w": 232,
+        "h": 182
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 232,
+        "h": 182
+      },
+      "sourceSize": {
+        "w": 232,
+        "h": 182
+      }
+    }
+  },
+  "meta": {
+    "app": "Louvo animation prototype",
+    "version": "1",
+    "image": "shanna.webp",
+    "format": "RGBA8888",
+    "size": {
+      "w": 944,
+      "h": 372
+    },
+    "scale": "1"
+  }
+}
