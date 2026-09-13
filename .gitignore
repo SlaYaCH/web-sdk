@@ -92,3 +92,6 @@ convert_*.txt
 build_log*.txt
 *.avant-lot*
 pack-v6/
+
+# cartes deposees a la racine pour installation (lot 142)
+/louvo_card_*.webp
