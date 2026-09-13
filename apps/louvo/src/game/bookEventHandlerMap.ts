@@ -5,7 +5,7 @@ import { sequence } from 'utils-shared/sequence';
 import { eventEmitter } from './eventEmitter';
 import { playBookEvent } from './utils';
 import { winLevelMap, type WinLevel, type WinLevelData } from './winLevelMap';
-import { winLineSpeed, stateWinLineSpeed } from './winLineSpeed.svelte';
+import { dureesLignes, stateWinLineSpeed } from './winLineSpeed.svelte';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
@@ -277,39 +277,30 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		if (orderedWins.length > 0) {
 			// Affichee tout de suite (pas apres la surbrillance des symboles),
 			// directement quand le 5eme rouleau vient de s'arreter.
+			//
+			// C'est AUSSI ce qui commande l'eclairage des cases (lot 140) :
+			// WinLinesDisplay allume la ligne en cours au moment ou il
+			// dessine son trait jaune. Il ne faut surtout pas le piloter
+			// d'ici : la surbrillance des symboles, juste en dessous, tourne
+			// a sa propre vitesse - quasi instantanee en turbo - et
+			// l'eclairage defilait alors les cinq lignes en une fraction de
+			// seconde avant de rester bloque sur la derniere.
 			eventEmitter.broadcast({ type: 'winLinesShow', wins: orderedWins });
 		}
 		await sequence(orderedWins, async (win) => {
 			await animateSymbols({ positions: win.positions });
 		});
 		if (bookEvent.wins.length > 0) {
-			// Duree d'UNE ligne (voir WinLineReveal.svelte) : 120 (apparition)
-			// + 700 (maintien) + 150 (ligne disparait) + 300 (attente) + 250 (montant
-			// disparait). Les lignes s'enchainent avec WIN_LINE_STAGGER d'ecart : la
-			// presentation complete dure donc plus longtemps des qu'il y en a
-			// plusieurs. L'attente etait FIXE (une seule ligne) : en turbo/super turbo,
-			// ou la surbrillance des symboles est quasi instantanee et n'absorbe plus
-			// le retard, le tour suivant partait par-dessus l'animation inachevee.
-			// Valeurs verifiees dans le code : WinLineReveal = 120 + 700 + 150 + 300
-			// + 250 par ligne, WinLinesDisplay = 200 ms entre deux lignes. La derniere
-			// ligne se termine donc WIN_LINE_STAGGER x (nb lignes - 1) apres la
-			// premiere. Les lignes ayant demarre AVANT la surbrillance des symboles,
-			// celle-ci absorbe deja une partie de ce decalage : on garde la pause
-			// d'origine et on ne rajoute QUE le manque. Vitesse normale : attente
-			// inchangee. Turbo/super turbo (surbrillance quasi instantanee) : allongee
-			// juste assez pour que la derniere ligne finisse avant le tour suivant.
-			const WIN_LINE_DURATION = 120 + 700 + 150 + 300 + 250;
-			const WIN_LINE_STAGGER = 200;
+			// UN SEUL calcul de cadence, le meme que lisent WinLinesDisplay
+			// et WinLineReveal : ils ne peuvent plus se contredire. C'est ce
+			// qui empeche le tour suivant de partir par-dessus une ligne
+			// encore affichee, en turbo comme en super turbo - le facteur de
+			// vitesse est deja applique dans dureesLignes.
+			const { total } = dureesLignes(bookEvent.wins.length);
 			const winLinesElapsed = performance.now() - winLinesStartedAt;
-			const staggerLeft = Math.max(
-				0,
-				WIN_LINE_STAGGER * (bookEvent.wins.length - 1) - winLinesElapsed,
+			await new Promise((r) =>
+				setTimeout(r, Math.max(0, total - winLinesElapsed)),
 			);
-			// Meme facteur que l'animation et que l'ecart entre lignes : les
-			// trois restent d'accord, le tour suivant ne peut pas partir
-			// par-dessus une ligne encore affichee.
-			const vitesse = winLineSpeed();
-			await new Promise((r) => setTimeout(r, (WIN_LINE_DURATION + staggerLeft) / vitesse));
 		}
 	},
 	setTotalWin: async (bookEvent: BookEventOfType<'setTotalWin'>) => {

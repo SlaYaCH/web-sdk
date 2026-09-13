@@ -4,12 +4,14 @@
 	import { bookEventAmountToCurrencyString } from 'utils-shared/amount';
 	import { getSymbolX } from '../game/utils';
 	import { SYMBOL_HEIGHT, REEL_PADDING } from '../game/constants';
-	import { winLineSpeed } from '../game/winLineSpeed.svelte';
+	import type { PhasesLigne } from '../game/winLineSpeed.svelte';
 
 	type Position = { reel: number; row: number };
 	type Props = {
 		positions: Position[];
 		amount: number;
+		/** Les cinq temps de CETTE ligne, calcules par dureesLignes. */
+		phases: PhasesLigne;
 		oncomplete: () => void;
 	};
 	const props: Props = $props();
@@ -20,15 +22,20 @@
 	const LINE_COLOR = 0xffe14d;
 	const LINE_WIDTH = 6;
 	const AMOUNT_Y_OFFSET = 40; // au-dessus de LA PROPRE hauteur moyenne de cette ligne
-	// Vitesse de presentation : acceleree en turbo tant que le gain
-	// n'atteint pas BIG WIN. Facteur commun, voir game/winLineSpeed.svelte.ts.
-	// Lu une seule fois, a la creation de la ligne.
-	const VITESSE = winLineSpeed();
-	const APPARITION_MS = 120 / VITESSE;
-	const HOLD_MS = 700 / VITESSE;
-	const LINE_FADE_MS = 150 / VITESSE;
-	const AMOUNT_EXTRA_HOLD_MS = 300 / VITESSE;
-	const AMOUNT_FADE_MS = 250 / VITESSE;
+	// Une pastille sur chaque case traversee, dans le MEME jaune et
+	// sans aucun contour. Elle dit quelles cases comptent, la ou un
+	// simple trait laisse un doute quand deux lignes se croisent.
+	const PASTILLES = true; // <<< false pour n'avoir que le trait
+	const PASTILLE_RAYON = 9;
+	// Les temps ne sont plus calcules ici : ils viennent de
+	// dureesLignes(), le calcul commun a WinLinesDisplay et au handler
+	// winInfo. Le facteur turbo y est deja applique. Lus une seule
+	// fois, a la creation de la ligne.
+	const APPARITION_MS = props.phases.apparition;
+	const HOLD_MS = props.phases.maintien;
+	const LINE_FADE_MS = props.phases.disparitionLigne;
+	const AMOUNT_EXTRA_HOLD_MS = props.phases.attenteMontant;
+	const AMOUNT_FADE_MS = props.phases.disparitionMontant;
 
 	let lineAlpha = $state(0);
 	let amountAlpha = $state(0);
@@ -102,6 +109,11 @@
 				g.lineTo(points[i].x, points[i].y);
 			}
 			g.stroke({ width: LINE_WIDTH, color: LINE_COLOR });
+			if (PASTILLES) {
+				for (const p of points) {
+					g.circle(p.x, p.y, PASTILLE_RAYON).fill({ color: LINE_COLOR });
+				}
+			}
 		}}
 	/>
 </Container>
