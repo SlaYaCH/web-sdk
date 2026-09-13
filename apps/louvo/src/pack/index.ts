@@ -10,3 +10,9 @@ export {
 	createMatchAnimation,
 	createShannaAnimation,
 } from './louvo-animations.mjs';
+export {
+	createAmbience,
+	createSkyWgsl,
+	AMBIENCE_POINTS,
+	FRAME_LAYOUT,
+} from './louvo-scene.mjs';

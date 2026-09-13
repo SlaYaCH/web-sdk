@@ -1,13 +1,64 @@
 <script lang="ts">
 	import { Tween } from 'svelte/motion';
+	import { cubicOut, elasticOut } from 'svelte/easing';
 	import { Container, Sprite, Text, Rectangle } from 'pixi-svelte';
 	import { stateBet, stateBetDerived, stateConfig, stateUi, stateModal } from 'state-shared';
 	import { numberToCurrencyString } from 'utils-shared/amount';
 	import { OnHotkey } from 'components-shared';
 
 	import { getContext } from '../game/context';
+	import LouvoPressFx from './LouvoPressFx.svelte';
 
 	const context = getContext();
+
+	// ============================================================
+	// LE GESTE DU CLIC                                  (lot 136)
+	//
+	// Les boutons sont peints dans bottom_bar.webp : il n'y a aucun
+	// sprite a enfoncer. Le geste se joue en surimpression, par
+	// LouvoPressFx, pose DANS chaque zone cliquable. Au repos tout
+	// est a alpha 0 : le visuel est intact.
+	//
+	// survol / appui : ce que fait la souris.
+	// coups          : incremente DANS le gestionnaire, apres les
+	//                  garde-fous. Donc la barre Espace anime le
+	//                  bouton aussi, et un bouton eteint ne
+	//                  clignote pas pour rien.
+	// ============================================================
+	const survol = $state({
+		bonus: false,
+		menu: false,
+		haut: false,
+		bas: false,
+		auto: false,
+		spin: false,
+	});
+	const appui = $state({
+		bonus: false,
+		menu: false,
+		haut: false,
+		bas: false,
+		auto: false,
+		spin: false,
+	});
+	const coups = $state({
+		bonus: 0,
+		menu: 0,
+		haut: 0,
+		bas: 0,
+		auto: 0,
+		spin: 0,
+	});
+
+	// Le BONUS a un vrai sprite : lui peut s'enfoncer pour de bon.
+	const bonusEchelle = new Tween(1, { duration: 70, easing: cubicOut });
+	$effect(() => {
+		bonusEchelle.set(
+			appui.bonus ? 0.93 : 1,
+			appui.bonus ? { duration: 70, easing: cubicOut }
+				: { duration: 260, easing: elasticOut },
+		);
+	});
 
 	// ============================================================
 	// Mesures reelles sur l'asset (louvo_bottom_bar.png) - en
@@ -30,12 +81,33 @@
 	// et sortait de l'ecran sur petit format.
 	const BONUS_X = BAR_WIDTH * 0.116 - BAR_WIDTH / 2;
 	const BONUS_Y_OFFSET = -118;
-	const MENU_X = BAR_WIDTH * 0.116 - BAR_WIDTH / 2;
+
+	// ============================================================
+	// LES POSITIONS, MESUREES DANS bottom_bar.webp      (lot 138)
+	//
+	// L'image fait 1486 x 274 et se rend en 1300 x 240 : les
+	// fractions ci-dessous se transposent telles quelles.
+	//
+	// Les zones cliquables etaient decalees DEPUIS LE DEBUT. On ne
+	// le voyait pas tant qu'aucun effet ne les dessinait :
+	//     SPIN      25 px trop a droite, 16 px trop bas
+	//     AUTOPLAY   5 px trop a droite, 19 px trop haut
+	//     fleches    6 px trop a droite, ecartees de 44 au lieu de 23
+	//
+	// ROW_Y n'est PAS touche : il sert aussi au solde et a la mise,
+	// qui ne doivent pas bouger. Chaque bouton a son propre y.
+	// ============================================================
+	const MENU_X = BAR_WIDTH * 0.1134 - BAR_WIDTH / 2;
+	const MENU_Y = BAR_HEIGHT * 0.5157 - BAR_HEIGHT / 2;
 	const BALANCE_X = BAR_WIDTH * 0.331 - BAR_WIDTH / 2;
-	const STEPPER_ARROWS_X = BAR_WIDTH * 0.623 - BAR_WIDTH / 2;
+	const STEPPER_ARROWS_X = BAR_WIDTH * 0.6181 - BAR_WIDTH / 2;
+	const HAUT_Y = BAR_HEIGHT * 0.4843 - BAR_HEIGHT / 2;
+	const BAS_Y = BAR_HEIGHT * 0.581 - BAR_HEIGHT / 2;
 	const STEPPER_SLOT_X = BAR_WIDTH * 0.686 - BAR_WIDTH / 2;
-	const SPIN_X = BAR_WIDTH * 0.881 - BAR_WIDTH / 2;
-	const AUTOSPIN_X = BAR_WIDTH * 0.970 - BAR_WIDTH / 2;
+	const SPIN_X = BAR_WIDTH * 0.8614 - BAR_WIDTH / 2;
+	const SPIN_Y = BAR_HEIGHT * 0.4453 - BAR_HEIGHT / 2;
+	const AUTOSPIN_X = BAR_WIDTH * 0.9665 - BAR_WIDTH / 2;
+	const AUTOSPIN_Y = BAR_HEIGHT * 0.5912 - BAR_HEIGHT / 2;
 
 	// --- Solde (tween, comme LabelBalance.svelte) ---
 	const balanceTween = new Tween(stateBet.balanceAmount);
@@ -59,6 +131,7 @@
 
 	const onIncrease = () => {
 		if (increaseDisabled) return;
+		coups.haut += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		const nextBigger = [...stateConfig.betAmountOptions]
 			.sort((a, b) => a - b)
@@ -67,6 +140,7 @@
 	};
 	const onDecrease = () => {
 		if (decreaseDisabled) return;
+		coups.bas += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		const nextSmaller = [...stateConfig.betAmountOptions]
 			.sort((a, b) => b - a)
@@ -76,6 +150,7 @@
 
 	// --- Menu (identique a ButtonMenu.svelte) ---
 	const onMenu = () => {
+		coups.menu += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		stateUi.menuOpen = true;
 	};
@@ -85,6 +160,7 @@
 	const bonusDisabled = $derived(!context.stateXstateDerived.isIdle());
 	const onBonus = () => {
 		if (bonusDisabled) return;
+		coups.bonus += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		if (bonusActive) {
 			stateBet.activeBetModeKey = 'BASE';
@@ -103,6 +179,7 @@
 	});
 	const onAutoSpin = () => {
 		if (autoSpinDisabled) return;
+		coups.auto += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		if (hasAutoBetCounter) {
 			stateBet.autoSpinsCounter = 0;
@@ -127,6 +204,7 @@
 		return false;
 	});
 	const onSpinPress = () => {
+		coups.spin += 1;
 		context.eventEmitter.broadcast({ type: 'soundPressBet' });
 		if (context.stateXstateDerived.isIdle()) {
 			if (stateBetDerived.activeBetMode()?.type === 'buy') stateBet.activeBetModeKey = 'BASE';
@@ -145,12 +223,31 @@
 	<Container
 		x={BONUS_X}
 		y={ROW_Y + BONUS_Y_OFFSET}
+		scale={bonusEchelle.current}
 		eventMode={bonusDisabled ? 'none' : 'static'}
 		cursor={bonusDisabled ? 'not-allowed' : 'pointer'}
 		alpha={bonusDisabled ? 0.5 : 1}
-		onpointerup={onBonus}
+		onpointerover={() => (survol.bonus = true)}
+		onpointerout={() => {
+			survol.bonus = false;
+			appui.bonus = false;
+		}}
+		onpointerdown={() => (appui.bonus = true)}
+		onpointerup={() => {
+			appui.bonus = false;
+			onBonus();
+		}}
 	>
 		<Sprite key="uiBonusIcon" anchor={0.5} width={90} height={90} />
+		<LouvoPressFx
+			largeur={90}
+			hauteur={90}
+			survole={survol.bonus}
+			presse={appui.bonus}
+			actif={!bonusDisabled}
+			coup={coups.bonus}
+			voileEteint={0}
+		/>
 		{#if bonusActive}
 			<Rectangle anchor={0.5} width={90} height={90} backgroundColor={0x1a0a14} borderColor={0xff2d6a} borderWidth={4} />
 			<Text
@@ -164,12 +261,28 @@
 	<!-- Menu -->
 	<Container
 		x={MENU_X}
-		y={ROW_Y}
+		y={MENU_Y}
 		eventMode="static"
 		cursor="pointer"
-		onpointerup={onMenu}
+		onpointerover={() => (survol.menu = true)}
+		onpointerout={() => {
+			survol.menu = false;
+			appui.menu = false;
+		}}
+		onpointerdown={() => (appui.menu = true)}
+		onpointerup={() => {
+			appui.menu = false;
+			onMenu();
+		}}
 	>
-		<Rectangle anchor={0.5} width={100} height={100} alpha={0.001} backgroundColor={0x000000} />
+		<Rectangle anchor={0.5} width={126} height={92} alpha={0.001} backgroundColor={0x000000} />
+		<LouvoPressFx
+			largeur={121}
+			hauteur={85}
+			survole={survol.menu}
+			presse={appui.menu}
+			coup={coups.menu}
+		/>
 	</Container>
 
 	<!-- Solde -->
@@ -193,36 +306,90 @@
 	<!-- Fleche haut (augmenter) -->
 	<Container
 		x={STEPPER_ARROWS_X}
-		y={ROW_Y - 22}
+		y={HAUT_Y}
 		eventMode={increaseDisabled ? 'none' : 'static'}
 		cursor={increaseDisabled ? 'not-allowed' : 'pointer'}
 		alpha={increaseDisabled ? 0.4 : 1}
-		onpointerup={onIncrease}
+		onpointerover={() => (survol.haut = true)}
+		onpointerout={() => {
+			survol.haut = false;
+			appui.haut = false;
+		}}
+		onpointerdown={() => (appui.haut = true)}
+		onpointerup={() => {
+			appui.haut = false;
+			onIncrease();
+		}}
 	>
-		<Rectangle anchor={0.5} width={50} height={40} alpha={0.001} backgroundColor={0x000000} />
+		<Rectangle anchor={0.5} width={46} height={23} alpha={0.001} backgroundColor={0x000000} />
+		<LouvoPressFx
+			largeur={30}
+			hauteur={22}
+			survole={survol.haut}
+			presse={appui.haut}
+			actif={!increaseDisabled}
+			coup={coups.haut}
+			voileEteint={0}
+		/>
 	</Container>
 
 	<!-- Fleche bas (diminuer) -->
 	<Container
 		x={STEPPER_ARROWS_X}
-		y={ROW_Y + 22}
+		y={BAS_Y}
 		eventMode={decreaseDisabled ? 'none' : 'static'}
 		cursor={decreaseDisabled ? 'not-allowed' : 'pointer'}
 		alpha={decreaseDisabled ? 0.4 : 1}
-		onpointerup={onDecrease}
+		onpointerover={() => (survol.bas = true)}
+		onpointerout={() => {
+			survol.bas = false;
+			appui.bas = false;
+		}}
+		onpointerdown={() => (appui.bas = true)}
+		onpointerup={() => {
+			appui.bas = false;
+			onDecrease();
+		}}
 	>
-		<Rectangle anchor={0.5} width={50} height={40} alpha={0.001} backgroundColor={0x000000} />
+		<Rectangle anchor={0.5} width={46} height={23} alpha={0.001} backgroundColor={0x000000} />
+		<LouvoPressFx
+			largeur={30}
+			hauteur={22}
+			survole={survol.bas}
+			presse={appui.bas}
+			actif={!decreaseDisabled}
+			coup={coups.bas}
+			voileEteint={0}
+		/>
 	</Container>
 
 	<!-- Autoplay -->
 	<Container
 		x={AUTOSPIN_X}
-		y={ROW_Y}
+		y={AUTOSPIN_Y}
 		eventMode={autoSpinDisabled ? 'none' : 'static'}
 		cursor={autoSpinDisabled ? 'not-allowed' : 'pointer'}
-		onpointerup={onAutoSpin}
+		onpointerover={() => (survol.auto = true)}
+		onpointerout={() => {
+			survol.auto = false;
+			appui.auto = false;
+		}}
+		onpointerdown={() => (appui.auto = true)}
+		onpointerup={() => {
+			appui.auto = false;
+			onAutoSpin();
+		}}
 	>
 		<Rectangle anchor={0.5} width={70} height={70} alpha={0.001} backgroundColor={0x000000} />
+		<LouvoPressFx
+			largeur={60}
+			hauteur={60}
+			cercle={true}
+			survole={survol.auto}
+			presse={appui.auto}
+			actif={!autoSpinDisabled}
+			coup={coups.auto}
+		/>
 		{#if hasAutoBetCounter}
 			<Text
 				anchor={0.5}
@@ -237,11 +404,29 @@
 	<OnHotkey hotkey="Space" disabled={spinDisabled} onpress={onSpinPress} />
 	<Container
 		x={SPIN_X}
-		y={ROW_Y}
+		y={SPIN_Y}
 		eventMode={spinDisabled ? 'none' : 'static'}
 		cursor={spinDisabled ? 'not-allowed' : 'pointer'}
-		onpointerup={onSpinPress}
+		onpointerover={() => (survol.spin = true)}
+		onpointerout={() => {
+			survol.spin = false;
+			appui.spin = false;
+		}}
+		onpointerdown={() => (appui.spin = true)}
+		onpointerup={() => {
+			appui.spin = false;
+			onSpinPress();
+		}}
 	>
 		<Rectangle anchor={0.5} width={180} height={180} alpha={0.001} backgroundColor={0x000000} />
+		<LouvoPressFx
+			largeur={162}
+			hauteur={162}
+			cercle={true}
+			survole={survol.spin}
+			presse={appui.spin}
+			actif={!spinDisabled}
+			coup={coups.spin}
+		/>
 	</Container>
 </Container>

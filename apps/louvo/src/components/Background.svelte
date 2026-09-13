@@ -3,6 +3,7 @@
 	import { FadeContainer } from 'components-pixi';
 	import { SECOND } from 'constants-shared/time';
 	import { getContext } from '../game/context';
+	import Ambience from './Ambience.svelte';
 
 	const context = getContext();
 
@@ -29,9 +30,9 @@
 <Rectangle {...canvas} backgroundColor={0x000000} zIndex={-4} />
 
 <FadeContainer show={showBaseBackground} duration={SECOND} zIndex={-3}>
-	<Sprite key="boardBackground" {...etire} anchor={0.5} />
+	<Ambience mode="base" cle="boardBackground" actif={showBaseBackground} />
 </FadeContainer>
 
 <FadeContainer show={showFeatureBackground} duration={SECOND} zIndex={-2}>
-	<Sprite key="boardBackgroundAfterDark" {...etire} anchor={0.5} />
+	<Ambience mode="afterDark" cle="boardBackgroundAfterDark" actif={showFeatureBackground} />
 </FadeContainer>
