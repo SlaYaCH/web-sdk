@@ -95,3 +95,6 @@ pack-v6/
 
 # cartes deposees a la racine pour installation (lot 142)
 /louvo_card_*.webp
+
+# wav intermediaires de fabrication de latlas sonore (regenerables)
+_audio_build/
