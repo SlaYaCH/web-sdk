@@ -36,6 +36,7 @@
 	import * as pack from '../pack';
 	import { getContext } from '../game/context';
 
+	import { dire } from '../game/journal';
 	type Props = {
 		/** 'base' ou 'afterDark' : choisit le jeu de points du pack. */
 		mode: 'base' | 'afterDark';
@@ -105,14 +106,14 @@
 			w.__louvoAmbiance = {};
 			setTimeout(() => {
 				try {
-					console.log(
+					dire(
 						'[louvo] bilan ambiance : ' +
 							JSON.stringify(w.__louvoAmbiance, (_c, v) =>
 								typeof v === 'number' ? Math.round(v * 100) / 100 : v,
 							),
 					);
 				} catch (erreur) {
-					console.log('[louvo] bilan ambiance : illisible', erreur);
+					dire('[louvo] bilan ambiance : illisible', erreur);
 				}
 			}, BILAN_MS);
 		}

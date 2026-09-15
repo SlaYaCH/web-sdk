@@ -27,6 +27,7 @@
 	import ResumeBet from './ResumeBet.svelte';
 	import Sound from './Sound.svelte';
 	import Background from './Background.svelte';
+	import LouvoSideCharacters from './LouvoSideCharacters.svelte';
 	import LoadingScreen from './LoadingScreen.svelte';
 import LouvoIntroScreen from './LouvoIntroScreen.svelte';
 	import BoardFrame from './BoardFrame.svelte';
@@ -98,6 +99,7 @@ import DevRevealPanel from './DevRevealPanel.svelte';
 
 	{#if !context.stateLayout.showLoadingScreen}
 		<Background />
+		<LouvoSideCharacters />
 	{/if}
 
 	{#if context.stateLayout.showLoadingScreen}

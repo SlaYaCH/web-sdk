@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+# ============================================================
+# Louvo - retrait des personnages lateraux (lot 147)
+#
+#   Remet les trois fichiers touches dans leur etat exact
+#   d'avant, supprime tout ce qui a ete cree, et verifie que le
+#   depot est bien revenu au point de depart.
+#
+#   Ecrit par patch134.txt AVANT sa premiere modification : il
+#   fonctionne meme si l'installation s'est arretee en route.
+#
+# Usage :
+#   cd /workspaces/web-sdk && python3 desinstaller_personnages.txt
+#   puis  pnpm run build --filter=louvo
+#
+# AUCUN BUILD ICI.
+# ============================================================
+import os
+import shutil
+import sys
+import traceback
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)
+
+SUF = ".avant-lot147"
+SRC = "apps/louvo/src"
+D_PACK = os.path.join(SRC, "pack-side")
+D_ASSETS = "apps/louvo/static/assets/side"
+TOUCHES = [
+    os.path.join(SRC, "components/Game.svelte"),
+    os.path.join(SRC, "game/actor.ts"),
+    os.path.join(SRC, "game/bookEventHandlerMap.ts"),
+]
+CREES = [
+    os.path.join(SRC, "game/sideCharacters.svelte.ts"),
+    os.path.join(SRC, "components/LouvoSideCharacters.svelte"),
+    os.path.join(SRC, "components/LouvoSideCharacters.svelte")
+    + ".avant-lot148",
+]
+SORTIES_BUILD = ("apps/louvo/.svelte-kit", "apps/louvo/build", "apps/louvo/dist")
+RAPPORT = "rapport_retrait_personnages.txt"
+report = []
+
+
+def say(l=""):
+    report.append(l)
+    print(l)
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        with open(RAPPORT, "w", encoding="utf-8") as f:
+            f.write("\n".join(report) + "\n")
+    except OSError:
+        pass
+
+
+def bloc(t):
+    say("")
+    say("=" * 70)
+    say("  " + t)
+    say("=" * 70)
+
+
+def lire(p):
+    try:
+        with open(p, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def main():
+    if not os.path.isdir(SRC):
+        say("  lancez ce script depuis /workspaces/web-sdk")
+        return False
+
+    say("===== RETRAIT DES PERSONNAGES LATERAUX =====")
+
+    bloc("1. LES TROIS FICHIERS TOUCHES")
+    say("  On remet la copie d'avant quand elle existe. Sinon on")
+    say("  retire les lignes ajoutees, une par une.")
+    say("")
+    for f in TOUCHES:
+        sauve = f + SUF
+        if os.path.isfile(sauve):
+            shutil.copy2(sauve, f)
+            os.remove(sauve)
+            say("  restaure : %-52s (copie d'avant)" % f)
+            continue
+        t = lire(f)
+        if t is None:
+            say("  absent   : %s" % f)
+            continue
+        avant = t
+        for m in (
+            "\timport LouvoSideCharacters from './LouvoSideCharacters.svelte';\n",
+            "\t\t<LouvoSideCharacters />\n",
+            "import { signalerTour } from './sideCharacters.svelte';\n",
+            "\t\t// Personnages lateraux : UN SEUL appel par tour, et seulement\n"
+            "\t\t// ici - a cet instant tout est joue, animations comprises.\n"
+            "\t\tsignalerTour(bet);\n",
+            "import { signalerBonus } from './sideCharacters.svelte';\n",
+            "\t\t// Personnages lateraux : les applaudissements partent tout de\n"
+            "\t\t// suite, sur la scene de base encore visible. La transition les\n"
+            "\t\t// interrompra, c'est voulu.\n"
+            "\t\tsignalerBonus();\n",
+        ):
+            t = t.replace(m, "")
+        if t != avant:
+            with open(f, "w", encoding="utf-8", newline="\n") as h:
+                h.write(t)
+            say("  nettoye  : %-52s (%+d o)" % (f, len(t) - len(avant)))
+        else:
+            say("  intact   : %s" % f)
+
+    bloc("2. CE QUI AVAIT ETE CREE")
+    for f in CREES:
+        if os.path.isfile(f):
+            os.remove(f)
+            say("  supprime : %s" % f)
+        else:
+            say("  absent   : %s" % f)
+    for d in (D_PACK, D_ASSETS):
+        if os.path.isdir(d):
+            poids = sum(os.path.getsize(os.path.join(r, n))
+                        for r, _s, ns in os.walk(d) for n in ns)
+            shutil.rmtree(d, ignore_errors=True)
+            say("  supprime : %-52s (%.1f Mo)" % (d, poids / 1048576))
+        else:
+            say("  absent   : %s" % d)
+
+    bloc("3. LES SORTIES DE BUILD")
+    for d in SORTIES_BUILD:
+        if os.path.isdir(d):
+            shutil.rmtree(d, ignore_errors=True)
+            say("  supprime : %s" % d)
+
+    bloc("VERIFICATION : EST-ON BIEN REVENU AU POINT DE DEPART ?")
+    ok = True
+
+    def check(lib, cond, detail=""):
+        nonlocal ok
+        if not cond:
+            ok = False
+        say("  %-52s %s%s" % (lib, "OK" if cond else "*** ECHEC ***",
+                              ("   " + detail) if detail else ""))
+
+    for f in CREES:
+        check("parti : %s" % os.path.basename(f), not os.path.exists(f))
+    check("parti : le dossier des modules", not os.path.exists(D_PACK))
+    check("parti : le dossier des images", not os.path.exists(D_ASSETS))
+    for f in TOUCHES:
+        t = lire(f) or ""
+        check("propre : %s" % os.path.basename(f),
+              "SideCharacters" not in t and "sideCharacters" not in t
+              and "signalerTour" not in t and "signalerBonus" not in t)
+        check("  plus aucune copie de secours",
+              not os.path.exists(f + SUF))
+
+    bloc("MAINTENANT")
+    say("  pnpm run build --filter=louvo")
+    say("")
+    say("  puis  Ctrl + Maj + R")
+    say("")
+    say("  Le jeu est exactement comme avant le lot 147.")
+    say("  Vous pouvez supprimer ce script et patch134.txt.")
+    return ok
+
+
+try:
+    ok = main()
+except Exception:
+    say("")
+    say("===== ERREUR PYTHON =====")
+    for l in traceback.format_exc().rstrip().split("\n"):
+        say(l)
+    ok = False
+
+say("")
+say("VERDICT : %s" % ("OK" if ok else "ECHEC"))
+print("")
+print("FINI")
+sys.exit(0 if ok else 1)

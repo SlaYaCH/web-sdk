@@ -7,6 +7,7 @@ import { playBookEvent } from './utils';
 import { winLevelMap, type WinLevel, type WinLevelData } from './winLevelMap';
 import { dureesLignes, stateWinLineSpeed } from './winLineSpeed.svelte';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
+import { signalerBonus } from './sideCharacters.svelte';
 import type { BookEvent, BookEventOfType, BookEventContext } from './typesBookEvent';
 import type { Position } from './types';
 import config from './config';
@@ -319,6 +320,10 @@ export const bookEventHandlerMap: BookEventHandlerMap<BookEvent, BookEventContex
 		}
 	},
 	freeSpinTrigger: async (bookEvent: BookEventOfType<'freeSpinTrigger'>) => {
+		// Personnages lateraux : les applaudissements partent tout de
+		// suite, sur la scene de base encore visible. La transition les
+		// interrompra, c'est voulu.
+		signalerBonus();
 		stateBetDerived.updateIsTurbo(false, { persistent: true });
 		stateBet.isSuperTurbo = false;
 		eventEmitter.broadcast({ type: 'soundOnce', name: 'sfx_scatter_win_v2' });

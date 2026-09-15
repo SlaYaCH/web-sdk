@@ -98,3 +98,8 @@ pack-v6/
 
 # wav intermediaires de fabrication de latlas sonore (regenerables)
 _audio_build/
+
+# Le pack des personnages lateraux : son contenu utile
+# est deja dans src/pack-side/ et static/assets/side/.
+louvo-personnages-lateraux-v6.zip
+louvo-personnages-lateraux-v6/

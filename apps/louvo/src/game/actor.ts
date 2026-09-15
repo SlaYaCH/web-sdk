@@ -9,6 +9,7 @@ import { stateXstateDerived } from './stateXstate';
 import { playBet, convertTorResumableBet } from './utils';
 import { stateGame, stateGameDerived } from './stateGame.svelte';
 import { recordRound, captureReplayRound } from './stateHistory.svelte';
+import { signalerTour } from './sideCharacters.svelte';
 import config from './config';
 
 const primaryMachines = createPrimaryMachines<Bet>({
@@ -39,6 +40,9 @@ const primaryMachines = createPrimaryMachines<Bet>({
 		// Ne peut pas echouer : recordRound est protege par un try/catch.
 		recordRound(bet);
 		await playBet(bet);
+		// Personnages lateraux : UN SEUL appel par tour, et seulement
+		// ici - a cet instant tout est joue, animations comprises.
+		signalerTour(bet);
 	},
 	checkIsBonusGame: (bet) => checkIsMultipleRevealEvents({ bookEvents: bet.state }),
 });

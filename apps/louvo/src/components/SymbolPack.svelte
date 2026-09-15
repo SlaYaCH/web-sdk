@@ -35,7 +35,7 @@
 				echecs: [] as string[],
 			};
 			setTimeout(() => {
-				console.log('[louvo] bilan animations :',
+				dire('[louvo] bilan animations :',
 					JSON.stringify(g.__louvoBilan));
 			}, 4000);
 		}
@@ -48,6 +48,7 @@
 		}
 	};
 	import { stateBetDerived } from 'state-shared';
+	import { dire } from '../game/journal';
 	type Props = {
 		x?: number;
 		y?: number;
