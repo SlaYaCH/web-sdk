@@ -2,7 +2,7 @@
 	import { Tween } from 'svelte/motion';
 	import { cubicOut, elasticOut } from 'svelte/easing';
 	import { Container, Sprite, Rectangle, Text } from 'pixi-svelte';
-	import { stateBet, stateModal } from 'state-shared';
+	import { stateBet, stateBetDerived, stateConfig, stateModal } from 'state-shared';
 	import { numberToCurrencyString } from 'utils-shared/amount';
 
 	import { getContext } from '../game/context';
@@ -80,7 +80,81 @@
 
 	const priceFor = (mult: number) => numberToCurrencyString(stateBet.betAmount * mult);
 
+	// ============================================================
+	// LE SOLDE SUFFIT-IL ?                              (lot 154)
+	//
+	// Meme regle que BonusCards.svelte du SDK. Une carte qu'on ne
+	// peut pas s'offrir passe en veilleuse et ne repond plus au
+	// clic : un bouton d'achat qui echoue est exactement ce qu'un
+	// relecteur releve.
+	// ============================================================
+	const CARTE_HORS_BUDGET = 0.38;
+	const abordable = (mult: number) =>
+		stateBet.betAmount > 0 && stateBet.balanceAmount >= stateBet.betAmount * mult;
+
+	// ============================================================
+	// LE SELECTEUR DE MISE                              (lot 154)
+	//
+	// Sans lui, changer de mise obligeait a fermer ce menu, a la
+	// regler dans la barre du bas, et a rouvrir.
+	//
+	// LA LOGIQUE EST CELLE DE LA BARRE DU BAS, A L'IDENTIQUE. Les
+	// paliers viennent de la plateforme (Admin Control Panel), pas
+	// du code : en inventer ici, c'est se garantir que les deux
+	// selecteurs divergeront un jour.
+	//
+	// LA PLACE : les cartes font 255 de haut, centrees, donc de
+	// -127 a +127. La boite du menu en autorise 187. Le selecteur
+	// fait 44 et se pose a 160 : de 138 a 182. Il rentre sans
+	// qu'on touche a la mise en page de Game.svelte. Une carte
+	// soulevee au survol remonte son bas a 128 : elle ne s'en
+	// approche pas davantage.
+	// ============================================================
+	const MISE_Y = 160;
+	const MISE_L = 300;
+	const MISE_H = 44;
+	const MISE_BORDURE = 4;
+	const FLECHE_X = 118;
+	const FLECHE_L = 46;
+	const FLECHE_H = 34;
+	const ROSE = 0xff2d6a;
+
+	const survolMise = $state({ moins: false, plus: false });
+	const appuiMise = $state({ moins: false, plus: false });
+
+	const plusGrosseMise = $derived(
+		stateConfig.betAmountOptions[stateConfig.betAmountOptions.length - 1],
+	);
+	const plusPetiteMise = $derived(stateConfig.betAmountOptions[0]);
+	const plusEteint = $derived(
+		!context.stateXstateDerived.isIdle() || stateBet.betAmount === plusGrosseMise,
+	);
+	const moinsEteint = $derived(
+		!context.stateXstateDerived.isIdle() || stateBet.betAmount === plusPetiteMise,
+	);
+
+	const onMiseHaut = () => {
+		if (plusEteint) return;
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		const suivante = [...stateConfig.betAmountOptions]
+			.sort((a, b) => a - b)
+			.find((option) => option > stateBet.betAmount);
+		stateBetDerived.setBetAmount(suivante || plusGrosseMise);
+	};
+	const onMiseBas = () => {
+		if (moinsEteint) return;
+		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
+		const precedente = [...stateConfig.betAmountOptions]
+			.sort((a, b) => b - a)
+			.find((option) => option < stateBet.betAmount);
+		stateBetDerived.setBetAmount(precedente || plusPetiteMise);
+	};
+
 	const onSelect = (option: (typeof OPTIONS)[number]) => {
+		// Ceinture et bretelles : la carte ne repond deja plus au clic
+		// quand le solde ne suffit pas, mais un achat impossible ne doit
+		// jamais pouvoir partir d'ici.
+		if (!abordable(option.mult)) return;
 		context.eventEmitter.broadcast({ type: 'soundPressGeneral' });
 		confirming = option;
 	};
@@ -153,7 +227,8 @@
 				x={(i - 2) * (CARD_WIDTH + CARD_GAP)}
 				y={(echelleCarte[i].current - 1) * CARTE_LEVEE}
 				scale={echelleCarte[i].current}
-				eventMode="static"
+				alpha={abordable(option.mult) ? 1 : CARTE_HORS_BUDGET}
+				eventMode={abordable(option.mult) ? 'static' : 'none'}
 				cursor="pointer"
 				onpointerover={() => (survolCarte[i] = true)}
 				onpointerout={() => {
@@ -198,6 +273,119 @@
 				/>
 			</Container>
 		{/each}
+
+		<!-- LE SELECTEUR DE MISE. Uniquement sur l'ecran de choix :
+		     sur la confirmation, le montant est deja choisi. -->
+		<Container y={MISE_Y}>
+			<Rectangle
+				anchor={0.5}
+				width={MISE_L + MISE_BORDURE}
+				height={MISE_H + MISE_BORDURE}
+				backgroundColor={ROSE}
+				alpha={0.55}
+			/>
+			<Rectangle
+				anchor={0.5}
+				width={MISE_L}
+				height={MISE_H}
+				backgroundColor={0x1a0a12}
+				alpha={0.92}
+			/>
+			<Text
+				anchor={0.5}
+				text={`BET   ${numberToCurrencyString(stateBet.betAmount)}`}
+				style={{
+					fontFamily: 'proxima-nova',
+					fontWeight: '600',
+					fontSize: 17,
+					fill: 0xffffff,
+				}}
+			/>
+
+			<Container
+				x={-FLECHE_X}
+				alpha={moinsEteint ? 0.3 : 1}
+				eventMode={moinsEteint ? 'none' : 'static'}
+				cursor="pointer"
+				onpointerover={() => (survolMise.moins = true)}
+				onpointerout={() => {
+					survolMise.moins = false;
+					appuiMise.moins = false;
+				}}
+				onpointerdown={() => (appuiMise.moins = true)}
+				onpointerup={() => {
+					appuiMise.moins = false;
+					onMiseBas();
+				}}
+			>
+				<Rectangle
+					anchor={0.5}
+					width={FLECHE_L}
+					height={FLECHE_H}
+					alpha={0.001}
+					backgroundColor={0x000000}
+				/>
+				<LouvoPressFx
+					largeur={FLECHE_L}
+					hauteur={FLECHE_H}
+					survole={survolMise.moins}
+					presse={appuiMise.moins}
+					voileEteint={0}
+				/>
+				<Text
+					anchor={0.5}
+					text="-"
+					style={{
+						fontFamily: 'proxima-nova',
+						fontWeight: '600',
+						fontSize: 30,
+						fill: 0xffffff,
+					}}
+				/>
+			</Container>
+
+			<Container
+				x={FLECHE_X}
+				alpha={plusEteint ? 0.3 : 1}
+				eventMode={plusEteint ? 'none' : 'static'}
+				cursor="pointer"
+				onpointerover={() => (survolMise.plus = true)}
+				onpointerout={() => {
+					survolMise.plus = false;
+					appuiMise.plus = false;
+				}}
+				onpointerdown={() => (appuiMise.plus = true)}
+				onpointerup={() => {
+					appuiMise.plus = false;
+					onMiseHaut();
+				}}
+			>
+				<Rectangle
+					anchor={0.5}
+					width={FLECHE_L}
+					height={FLECHE_H}
+					alpha={0.001}
+					backgroundColor={0x000000}
+				/>
+				<LouvoPressFx
+					largeur={FLECHE_L}
+					hauteur={FLECHE_H}
+					survole={survolMise.plus}
+					presse={appuiMise.plus}
+					voileEteint={0}
+				/>
+				<Text
+					anchor={0.5}
+					text="+"
+					style={{
+						fontFamily: 'proxima-nova',
+						fontWeight: '600',
+						fontSize: 28,
+						fill: 0xffffff,
+					}}
+				/>
+			</Container>
+		</Container>
 	{:else}
 		{@const isDateStack = confirming.confirmKey === 'speeddating' || confirming.confirmKey === 'afterdark'}
 		<Sprite key={`louvoConfirm_${confirming.confirmKey}`} anchor={0.5} width={CONFIRM_WIDTH} height={CONFIRM_HEIGHT} />
